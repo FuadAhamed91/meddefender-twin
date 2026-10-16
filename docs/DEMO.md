@@ -120,8 +120,8 @@ Resolved, and the backend rejects any transition outside it.
    before deciding.
 3. **Apply plan** asks for a justification, which is recorded in the audit trail. A plan
    that impairs a clinical or operational service requires a security admin; an operator can
-   apply only the low-impact ones. After applying, the device shows *Isolated* or
-   *Restricted*, and its room turns red in the twin.
+   apply only the low-impact ones. After applying, the device's chip in the twin says
+   *isolated* or *restricted*, and its light pillar turns red when isolated.
 4. **Begin recovery**, then use the **Recovery** tab: rotate the device credentials (new key
    version), release the containment policies (deactivated and kept for evidence, never
    deleted), and restore trusted state to the last known-good observation.
