@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local data
+.localdb/
+*.sqlite
+*.log
+
+# Blender
+*.blend1
+*.blend2
+blender/out/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

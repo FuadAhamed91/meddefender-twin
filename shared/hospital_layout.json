@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "name": "MedDefender Twin - simulated single-floor hospital",
+  "disclaimer": "Synthetic layout for a security simulation. It does not represent any real hospital.",
+  "units": "meters",
+  "coordinate_system": {
+    "plan": "x = east, y = north, z = up (Blender native)",
+    "gltf_three": "Blender exporter converts Z-up to Y-up: three(x, y, z) = (plan_x, plan_z, -plan_y)"
+  },
+  "floor": { "min": [0, 0], "max": [56, 36] },
+  "wall_height": 1.4,
+  "wall_thickness": 0.18,
+  "zones": [
+    {
+      "id": "ZONE-ICU",
+      "name": "Intensive Care Unit",
+      "description": "Clinical care area with bedside monitoring equipment.",
+      "vlan_id": 110,
+      "subnet": "10.20.110.0/24",
+      "trust_level": "clinical",
+      "color": "#2bb3c0",
+      "bounds": { "min": [0, 20], "max": [24, 36] }
+    },
+    {
+      "id": "ZONE-IMG",
+      "name": "Imaging Suite",
+      "description": "Imaging acquisition and review area.",
+      "vlan_id": 120,
+      "subnet": "10.20.120.0/24",
+      "trust_level": "clinical",
+      "color": "#7c8cf5",
+      "bounds": { "min": [30, 20], "max": [56, 36] }
+    },
+    {
+      "id": "ZONE-DC",
+      "name": "IT / Server Room",
+      "description": "Hospital IT systems, core network and security operations.",
+      "vlan_id": 10,
+      "subnet": "10.20.10.0/24",
+      "trust_level": "infrastructure",
+      "color": "#4fa3e0",
+      "bounds": { "min": [0, 0], "max": [32, 14] }
+    },
+    {
+      "id": "ZONE-BMS",
+      "name": "Building Management",
+      "description": "Building-management network: HVAC control and environmental sensing.",
+      "vlan_id": 200,
+      "subnet": "10.20.200.0/24",
+      "trust_level": "operational-technology",
+      "color": "#d9a441",
+      "bounds": { "min": [32, 0], "max": [56, 14] }
+    }
+  ],
+  "rooms": [
+    { "id": "ICU-BAY-1", "name": "ICU Bay 1", "area_zone": "ZONE-ICU", "kind": "clinical", "bounds": { "min": [0, 28], "max": [8, 36] } },
+    { "id": "ICU-BAY-2", "name": "ICU Bay 2", "area_zone": "ZONE-ICU", "kind": "clinical", "bounds": { "min": [8, 28], "max": [16, 36] } },
+    { "id": "ICU-BAY-3", "name": "ICU Bay 3", "area_zone": "ZONE-ICU", "kind": "clinical", "bounds": { "min": [16, 28], "max": [24, 36] } },
+    { "id": "ICU-NURSE-STATION", "name": "ICU Nurse Station", "area_zone": "ZONE-ICU", "kind": "clinical", "bounds": { "min": [0, 20], "max": [19, 28] } },
+    { "id": "ICU-COMMS", "name": "ICU Comms Room", "area_zone": "ZONE-ICU", "kind": "technical", "bounds": { "min": [19, 20], "max": [24, 28] } },
+    { "id": "CORRIDOR-NORTH", "name": "North Corridor", "area_zone": null, "kind": "corridor", "bounds": { "min": [24, 20], "max": [30, 36] } },
+    { "id": "IMG-CT-ROOM", "name": "CT Room", "area_zone": "ZONE-IMG", "kind": "clinical", "bounds": { "min": [30, 26], "max": [44, 36] } },
+    { "id": "IMG-READING", "name": "Imaging Reading Room", "area_zone": "ZONE-IMG", "kind": "clinical", "bounds": { "min": [44, 26], "max": [56, 36] } },
+    { "id": "IMG-NET-CLOSET", "name": "Imaging Network Closet", "area_zone": "ZONE-IMG", "kind": "technical", "bounds": { "min": [30, 20], "max": [36, 26] } },
+    { "id": "IMG-WAITING", "name": "Imaging Waiting Area", "area_zone": "ZONE-IMG", "kind": "public", "bounds": { "min": [36, 20], "max": [56, 26] } },
+    { "id": "CORRIDOR-MAIN", "name": "Main Corridor", "area_zone": null, "kind": "corridor", "bounds": { "min": [0, 14], "max": [56, 20] } },
+    { "id": "DC-SERVER-ROOM", "name": "Server Room", "area_zone": "ZONE-DC", "kind": "technical", "bounds": { "min": [0, 0], "max": [20, 14] } },
+    { "id": "DC-SECURITY-OFFICE", "name": "Security Operations Office", "area_zone": "ZONE-DC", "kind": "technical", "bounds": { "min": [20, 0], "max": [32, 14] } },
+    { "id": "BMS-PLANT-ROOM", "name": "Plant Room", "area_zone": "ZONE-BMS", "kind": "technical", "bounds": { "min": [32, 0], "max": [56, 14] } }
+  ],
+  "walls": [
+    { "from": [0, 0], "to": [56, 0], "type": "solid" },
+    { "from": [0, 36], "to": [56, 36], "type": "solid" },
+    { "from": [0, 0], "to": [0, 36], "type": "solid" },
+    { "from": [56, 0], "to": [56, 36], "type": "solid" },
+
+    { "from": [0, 20], "to": [6, 20], "type": "solid" },
+    { "from": [9, 20], "to": [20, 20], "type": "solid" },
+    { "from": [21.5, 20], "to": [24, 20], "type": "solid" },
+    { "from": [30, 20], "to": [44, 20], "type": "solid" },
+    { "from": [48, 20], "to": [56, 20], "type": "solid" },
+
+    { "from": [0, 14], "to": [13, 14], "type": "solid" },
+    { "from": [15.5, 14], "to": [24.5, 14], "type": "solid" },
+    { "from": [27, 14], "to": [40, 14], "type": "solid" },
+    { "from": [43, 14], "to": [56, 14], "type": "solid" },
+
+    { "from": [20, 0], "to": [20, 14], "type": "glass" },
+    { "from": [32, 0], "to": [32, 14], "type": "solid" },
+
+    { "from": [0, 28], "to": [2, 28], "type": "glass" },
+    { "from": [6, 28], "to": [10, 28], "type": "glass" },
+    { "from": [14, 28], "to": [16, 28], "type": "glass" },
+    { "from": [19, 28], "to": [24, 28], "type": "solid" },
+    { "from": [8, 28], "to": [8, 36], "type": "glass" },
+    { "from": [16, 28], "to": [16, 36], "type": "glass" },
+    { "from": [19, 20], "to": [19, 28], "type": "solid" },
+    { "from": [24, 20], "to": [24, 36], "type": "solid" },
+
+    { "from": [30, 20], "to": [30, 21], "type": "solid" },
+    { "from": [30, 22.5], "to": [30, 30], "type": "solid" },
+    { "from": [30, 32.5], "to": [30, 36], "type": "solid" },
+    { "from": [30, 26], "to": [38, 26], "type": "solid" },
+    { "from": [40.5, 26], "to": [44, 26], "type": "solid" },
+    { "from": [44, 26], "to": [50, 26], "type": "solid" },
+    { "from": [51.5, 26], "to": [56, 26], "type": "solid" },
+    { "from": [36, 20], "to": [36, 26], "type": "solid" },
+    { "from": [44, 26], "to": [44, 36], "type": "glass" }
+  ],
+  "assets": [
+    { "id": "ICU-MONITOR-01", "name": "Bedside Patient Monitor - Bay 1", "kind": "MEDICAL_DEVICE", "type": "patient_monitor", "network_zone": "ZONE-ICU", "room": "ICU-BAY-1", "position": [5.7, 34.7], "rotation": 0, "ip": "10.20.110.11", "template": "patient_monitor", "label_height": 2.2 },
+    { "id": "ICU-MONITOR-02", "name": "Bedside Patient Monitor - Bay 2", "kind": "MEDICAL_DEVICE", "type": "patient_monitor", "network_zone": "ZONE-ICU", "room": "ICU-BAY-2", "position": [13.7, 34.7], "rotation": 0, "ip": "10.20.110.12", "template": "patient_monitor", "label_height": 2.2 },
+    { "id": "ICU-MONITOR-03", "name": "Bedside Patient Monitor - Bay 3", "kind": "MEDICAL_DEVICE", "type": "patient_monitor", "network_zone": "ZONE-ICU", "room": "ICU-BAY-3", "position": [21.7, 34.7], "rotation": 0, "ip": "10.20.110.13", "template": "patient_monitor", "label_height": 2.2 },
+    { "id": "ICU-PUMP-01", "name": "Infusion Pump Representation - Bay 1", "kind": "MEDICAL_DEVICE", "type": "infusion_pump", "network_zone": "ZONE-ICU", "room": "ICU-BAY-1", "position": [2.3, 34.3], "rotation": 0, "ip": "10.20.110.21", "template": "infusion_pump", "label_height": 2.0 },
+    { "id": "ICU-GATEWAY-01", "name": "Central Monitoring Gateway", "kind": "MEDICAL_DEVICE", "type": "monitoring_gateway", "network_zone": "ZONE-ICU", "room": "ICU-COMMS", "position": [20.3, 26.4], "rotation": 180, "ip": "10.20.110.5", "template": "gateway_rack", "label_height": 2.6 },
+    { "id": "ICU-SWITCH-01", "name": "ICU Access Switch", "kind": "NETWORK", "type": "access_switch", "network_zone": "ZONE-ICU", "room": "ICU-COMMS", "position": [22.7, 26.4], "rotation": 180, "ip": "10.20.110.2", "template": "switch_rack", "label_height": 2.6 },
+    { "id": "ICU-WS-01", "name": "ICU Clinical Workstation", "kind": "IT_ENDPOINT", "type": "clinical_workstation", "network_zone": "ZONE-ICU", "room": "ICU-NURSE-STATION", "position": [8.0, 23.2], "rotation": 0, "ip": "10.20.110.31", "template": "workstation", "label_height": 2.0 },
+    { "id": "HVAC-SENSOR-01", "name": "ICU Environment Sensor", "kind": "BUILDING_SYSTEM", "type": "environment_sensor", "network_zone": "ZONE-BMS", "room": "ICU-NURSE-STATION", "position": [0.2, 24.5], "rotation": 90, "ip": "10.20.200.31", "template": "wall_sensor", "label_height": 2.1 },
+
+    { "id": "IMG-CT-01", "name": "CT Scanner (simulated modality)", "kind": "MEDICAL_DEVICE", "type": "imaging_modality", "network_zone": "ZONE-IMG", "room": "IMG-CT-ROOM", "position": [37.0, 31.0], "rotation": 0, "ip": "10.20.120.11", "template": "ct_scanner", "label_height": 2.8 },
+    { "id": "IMG-WS-01", "name": "Imaging Review Workstation", "kind": "IT_ENDPOINT", "type": "imaging_workstation", "network_zone": "ZONE-IMG", "room": "IMG-READING", "position": [50.0, 32.2], "rotation": 0, "ip": "10.20.120.31", "template": "workstation_dual", "label_height": 2.0 },
+    { "id": "IMG-SWITCH-01", "name": "Imaging Access Switch", "kind": "NETWORK", "type": "access_switch", "network_zone": "ZONE-IMG", "room": "IMG-NET-CLOSET", "position": [33.0, 24.4], "rotation": 180, "ip": "10.20.120.2", "template": "switch_rack", "label_height": 2.6 },
+    { "id": "HVAC-SENSOR-02", "name": "CT Room Environment Sensor", "kind": "BUILDING_SYSTEM", "type": "environment_sensor", "network_zone": "ZONE-BMS", "room": "IMG-CT-ROOM", "position": [40.0, 35.8], "rotation": 180, "ip": "10.20.200.32", "template": "wall_sensor", "label_height": 2.1 },
+
+    { "id": "NET-GW-01", "name": "Core Zone Gateway / Firewall", "kind": "NETWORK", "type": "zone_gateway", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [3.0, 9.0], "rotation": 0, "ip": "10.20.10.1", "template": "firewall_rack", "label_height": 2.7 },
+    { "id": "APP-SERVER-01", "name": "Hospital Application Server", "kind": "IT_SYSTEM", "type": "application_server", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [6.0, 9.0], "rotation": 0, "ip": "10.20.10.21", "template": "server_rack", "label_height": 2.7 },
+    { "id": "MON-SERVER-01", "name": "Central Monitoring Server", "kind": "IT_SYSTEM", "type": "monitoring_server", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [9.0, 9.0], "rotation": 0, "ip": "10.20.10.22", "template": "server_rack", "label_height": 2.7 },
+    { "id": "IAM-SERVER-01", "name": "Identity & Access Service", "kind": "IT_SYSTEM", "type": "identity_server", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [12.0, 9.0], "rotation": 0, "ip": "10.20.10.23", "template": "server_rack", "label_height": 2.7 },
+    { "id": "IMG-SERVER-01", "name": "Imaging Archive Server", "kind": "IT_SYSTEM", "type": "imaging_archive", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [15.0, 9.0], "rotation": 0, "ip": "10.20.10.24", "template": "server_rack", "label_height": 2.7 },
+    { "id": "NET-SENSOR-01", "name": "Network Monitoring Sensor", "kind": "SECURITY", "type": "network_sensor", "network_zone": "ZONE-DC", "room": "DC-SERVER-ROOM", "position": [3.0, 4.0], "rotation": 0, "ip": "10.20.10.40", "template": "sensor_rack", "label_height": 2.7 },
+    { "id": "SOC-WS-01", "name": "Security Monitoring Workstation", "kind": "SECURITY", "type": "soc_workstation", "network_zone": "ZONE-DC", "room": "DC-SECURITY-OFFICE", "position": [26.0, 6.5], "rotation": 0, "ip": "10.20.10.50", "template": "workstation_triple", "label_height": 2.0 },
+
+    { "id": "BMS-GW-01", "name": "Building Management Gateway", "kind": "BUILDING_SYSTEM", "type": "bms_gateway", "network_zone": "ZONE-BMS", "room": "BMS-PLANT-ROOM", "position": [32.3, 9.5], "rotation": 270, "ip": "10.20.200.2", "template": "wall_panel", "label_height": 2.4 },
+    { "id": "HVAC-CTRL-01", "name": "HVAC Controller (AHU-1)", "kind": "BUILDING_SYSTEM", "type": "hvac_controller", "network_zone": "ZONE-BMS", "room": "BMS-PLANT-ROOM", "position": [43.5, 10.2], "rotation": 0, "ip": "10.20.200.10", "template": "control_cabinet", "label_height": 2.6 }
+  ],
+  "decor": [
+    { "template": "bed", "position": [4.0, 32.6], "rotation": 0 },
+    { "template": "bed", "position": [12.0, 32.6], "rotation": 0 },
+    { "template": "bed", "position": [20.0, 32.6], "rotation": 0 },
+    { "template": "nurse_desk", "position": [9.5, 24.6], "rotation": 0 },
+    { "template": "ct_table", "position": [37.0, 28.4], "rotation": 0 },
+    { "template": "desk", "position": [50.0, 32.9], "rotation": 0 },
+    { "template": "rack_blank", "position": [6.0, 4.0], "rotation": 0 },
+    { "template": "rack_blank", "position": [9.0, 4.0], "rotation": 0 },
+    { "template": "rack_blank", "position": [12.0, 4.0], "rotation": 0 },
+    { "template": "rack_blank", "position": [15.0, 4.0], "rotation": 0 },
+    { "template": "ahu", "position": [49.5, 6.0], "rotation": 0 },
+    { "template": "duct", "position": [44.0, 12.6], "rotation": 0 },
+    { "template": "seating", "position": [42.0, 22.0], "rotation": 0 },
+    { "template": "seating", "position": [48.0, 22.0], "rotation": 0 }
+  ]
+}
