@@ -1,0 +1,194 @@
+{
+  "layout_version": 1,
+  "assets": [
+    {
+      "asset_id": "ICU-MONITOR-01",
+      "node": "AST_ICU-MONITOR-01",
+      "template": "patient_monitor",
+      "position": [
+        5.7,
+        34.7
+      ]
+    },
+    {
+      "asset_id": "ICU-MONITOR-02",
+      "node": "AST_ICU-MONITOR-02",
+      "template": "patient_monitor",
+      "position": [
+        13.7,
+        34.7
+      ]
+    },
+    {
+      "asset_id": "ICU-MONITOR-03",
+      "node": "AST_ICU-MONITOR-03",
+      "template": "patient_monitor",
+      "position": [
+        21.7,
+        34.7
+      ]
+    },
+    {
+      "asset_id": "ICU-PUMP-01",
+      "node": "AST_ICU-PUMP-01",
+      "template": "infusion_pump",
+      "position": [
+        2.3,
+        34.3
+      ]
+    },
+    {
+      "asset_id": "ICU-GATEWAY-01",
+      "node": "AST_ICU-GATEWAY-01",
+      "template": "gateway_rack",
+      "position": [
+        20.3,
+        26.4
+      ]
+    },
+    {
+      "asset_id": "ICU-SWITCH-01",
+      "node": "AST_ICU-SWITCH-01",
+      "template": "switch_rack",
+      "position": [
+        22.7,
+        26.4
+      ]
+    },
+    {
+      "asset_id": "ICU-WS-01",
+      "node": "AST_ICU-WS-01",
+      "template": "workstation",
+      "position": [
+        8.0,
+        23.2
+      ]
+    },
+    {
+      "asset_id": "HVAC-SENSOR-01",
+      "node": "AST_HVAC-SENSOR-01",
+      "template": "wall_sensor",
+      "position": [
+        0.2,
+        24.5
+      ]
+    },
+    {
+      "asset_id": "IMG-CT-01",
+      "node": "AST_IMG-CT-01",
+      "template": "ct_scanner",
+      "position": [
+        37.0,
+        31.0
+      ]
+    },
+    {
+      "asset_id": "IMG-WS-01",
+      "node": "AST_IMG-WS-01",
+      "template": "workstation_dual",
+      "position": [
+        50.0,
+        32.2
+      ]
+    },
+    {
+      "asset_id": "IMG-SWITCH-01",
+      "node": "AST_IMG-SWITCH-01",
+      "template": "switch_rack",
+      "position": [
+        33.0,
+        24.4
+      ]
+    },
+    {
+      "asset_id": "HVAC-SENSOR-02",
+      "node": "AST_HVAC-SENSOR-02",
+      "template": "wall_sensor",
+      "position": [
+        40.0,
+        35.8
+      ]
+    },
+    {
+      "asset_id": "NET-GW-01",
+      "node": "AST_NET-GW-01",
+      "template": "firewall_rack",
+      "position": [
+        3.0,
+        9.0
+      ]
+    },
+    {
+      "asset_id": "APP-SERVER-01",
+      "node": "AST_APP-SERVER-01",
+      "template": "server_rack",
+      "position": [
+        6.0,
+        9.0
+      ]
+    },
+    {
+      "asset_id": "MON-SERVER-01",
+      "node": "AST_MON-SERVER-01",
+      "template": "server_rack",
+      "position": [
+        9.0,
+        9.0
+      ]
+    },
+    {
+      "asset_id": "IAM-SERVER-01",
+      "node": "AST_IAM-SERVER-01",
+      "template": "server_rack",
+      "position": [
+        12.0,
+        9.0
+      ]
+    },
+    {
+      "asset_id": "IMG-SERVER-01",
+      "node": "AST_IMG-SERVER-01",
+      "template": "server_rack",
+      "position": [
+        15.0,
+        9.0
+      ]
+    },
+    {
+      "asset_id": "NET-SENSOR-01",
+      "node": "AST_NET-SENSOR-01",
+      "template": "sensor_rack",
+      "position": [
+        3.0,
+        4.0
+      ]
+    },
+    {
+      "asset_id": "SOC-WS-01",
+      "node": "AST_SOC-WS-01",
+      "template": "workstation_triple",
+      "position": [
+        26.0,
+        6.5
+      ]
+    },
+    {
+      "asset_id": "BMS-GW-01",
+      "node": "AST_BMS-GW-01",
+      "template": "wall_panel",
+      "position": [
+        32.3,
+        9.5
+      ]
+    },
+    {
+      "asset_id": "HVAC-CTRL-01",
+      "node": "AST_HVAC-CTRL-01",
+      "template": "control_cabinet",
+      "position": [
+        43.5,
+        10.2
+      ]
+    }
+  ]
+}
