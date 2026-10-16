@@ -50,7 +50,9 @@ PASSWORDS = {
 
 @pytest.fixture(scope="session")
 def settings() -> Settings:
+    # _env_file=None: tests must never pick up a developer's local .env.
     return Settings(
+        _env_file=None,  # type: ignore[call-arg]
         environment="test",
         database_url=TEST_DATABASE_URL,
         device_key_master_secret=MASTER_SECRET,  # type: ignore[arg-type]

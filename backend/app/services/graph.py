@@ -394,8 +394,10 @@ def dependency_impact(session: Session, ctx: GraphContext, isolated: set[str]) -
                 f"{dep.dependency_type.value} on {dep.provider_asset_id}: {reason}",
             )
 
-    # Propagate: a HIGH/CRITICAL impairment of a provider impairs its dependents at the
-    # dependency's criticality; lower impairments degrade dependents at most to LOW.
+    # Propagate only HIGH/CRITICAL impairments: a dependent of a seriously impaired provider is
+    # impaired at the dependency's own criticality. Lower-criticality disruptions are listed
+    # above but not cascaded, because the model does not know whether the lost function (for
+    # example central configuration management) is the one the dependent relies on.
     changed = True
     while changed:
         changed = False
@@ -403,13 +405,13 @@ def dependency_impact(session: Session, ctx: GraphContext, isolated: set[str]) -
             provider_state = impaired.get(dep.provider_asset_id)
             if provider_state is None:
                 continue
-            provider_crit = provider_state[0]
-            crit = (
-                dep.criticality
-                if CRITICALITY_RANK[provider_crit] >= CRITICALITY_RANK[Criticality.HIGH]
-                else Criticality.LOW
-            )
-            if mark(dep.dependent_asset_id, crit, f"depends on impaired {dep.provider_asset_id}"):
+            if CRITICALITY_RANK[provider_state[0]] < CRITICALITY_RANK[Criticality.HIGH]:
+                continue
+            if mark(
+                dep.dependent_asset_id,
+                dep.criticality,
+                f"depends on impaired {dep.provider_asset_id}",
+            ):
                 changed = True
 
     services = []

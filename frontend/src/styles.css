@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Design tokens: dark navy surfaces, restrained cyan accent, semantic status colors.
+   Status is never conveyed by color alone: every status component pairs it with an icon
+   and a text label. */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-canvas: #0b1324;
+  --color-surface: #111b2e;
+  --color-surface-2: #16233a;
+  --color-surface-3: #1d2c47;
+  --color-line: rgb(148 163 184 / 0.14);
+  --color-line-strong: rgb(148 163 184 / 0.28);
+  --color-ink: #e2e8f0;
+  --color-ink-muted: #9aabc2;
+  --color-ink-faint: #64748b;
+
+  --color-accent: #22c3d6;
+  --color-accent-strong: #67e0ec;
+  --color-accent-soft: rgb(34 195 214 / 0.14);
+
+  --color-ok: #34d399;
+  --color-warn: #f5b945;
+  --color-high: #f2803a;
+  --color-crit: #f04452;
+  --color-low: #5aa9f0;
+  --color-violet: #c084fc;
+  --color-revoked: #d0647a;
+  --color-dep: #a78bfa;
+
+  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
+  --animate-fade-in: fade-in 160ms ease-out;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 currentColor; }
+  70% { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent-strong);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(34 195 214 / 0.35);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.3) transparent;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

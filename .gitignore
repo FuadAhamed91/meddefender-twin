@@ -37,3 +37,6 @@ blender/out/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local editor/agent tooling
+.claude/
