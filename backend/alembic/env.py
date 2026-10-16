@@ -8,13 +8,14 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import engine_from_config, pool
 
+import app.models  # noqa: F401  (registers all tables)
 from alembic import context
 from app.db.base import Base
-import app.models  # noqa: F401  (registers all tables)
 
 config = context.config
 if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
+
 
 class _MigrationSettings(BaseSettings):
     """Only the database URL: migrations must not require application secrets."""
@@ -31,7 +32,9 @@ url = (
     or _MigrationSettings().database_url
 )
 if not url:
-    raise RuntimeError("Set DATABASE_URL (env or .env) or pass -x dburl=... before running migrations")
+    raise RuntimeError(
+        "Set DATABASE_URL (env or .env) or pass -x dburl=... before running migrations"
+    )
 config.set_main_option("sqlalchemy.url", url)
 
 target_metadata = Base.metadata
