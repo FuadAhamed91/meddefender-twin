@@ -122,3 +122,27 @@ def pipeline(services: AppServices) -> IngestionPipeline:
 @pytest.fixture
 def devices(services: AppServices) -> DeviceFactory:
     return DeviceFactory(services)
+
+
+@pytest.fixture
+def app(services: AppServices):
+    from app.main import create_app
+
+    return create_app(services=services, start_background=False)
+
+
+@pytest.fixture
+def client(app):
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def login(client, username: str) -> dict[str, str]:
+    """Sign in and return the CSRF header the client must send on unsafe requests."""
+    response = client.post(
+        "/api/v1/auth/login", json={"username": username, "password": PASSWORDS[username]}
+    )
+    assert response.status_code == 200, response.text
+    return {"X-CSRF-Token": response.json()["csrf_token"]}

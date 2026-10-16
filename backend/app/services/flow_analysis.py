@@ -105,6 +105,16 @@ class FlowAnalysis:
                 baseline.observation_count += 1
                 summary["routine"] += 1
                 continue
+            matched_origin = (evaluation.explanation.get("matched") or {}).get("origin")
+            if (
+                baseline is not None
+                and evaluation.outcome is DecisionOutcome.BLOCKED
+                and matched_origin == "CONTAINMENT"
+            ):
+                # Normal traffic on a modeled path, blocked because an operator applied
+                # containment. That is the intended effect, not a new violation by the sender.
+                summary["contained"] = summary.get("contained", 0) + 1
+                continue
 
             decision = record_policy_decision(
                 ctx,

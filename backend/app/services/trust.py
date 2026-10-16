@@ -9,8 +9,8 @@ Design notes
   could lock out a real device by sending garbage under its ID.
 * Suspicion is cleared only by a human (SUSPICIOUS -> AUTHENTICATED); it never decays
   automatically, so an attacker cannot launder it by sending clean messages.
-* Leaving QUARANTINED or REVOKED requires re-provisioning (new key version) and returns to
-  REGISTERED, so the device must authenticate again with the new key.
+* Leaving SUSPICIOUS, QUARANTINED or REVOKED through recovery requires re-provisioning (a
+  new key version) and returns to REGISTERED, so the device must authenticate again.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ ALLOWED_TRANSITIONS: dict[TrustState, frozenset[TrustState]] = {
     T.UNREGISTERED: frozenset({T.REGISTERED}),
     T.REGISTERED: frozenset({T.AUTHENTICATED, T.SUSPICIOUS, T.QUARANTINED, T.REVOKED, T.OFFLINE}),
     T.AUTHENTICATED: frozenset({T.SUSPICIOUS, T.QUARANTINED, T.REVOKED, T.OFFLINE}),
-    T.SUSPICIOUS: frozenset({T.AUTHENTICATED, T.QUARANTINED, T.REVOKED}),
+    T.SUSPICIOUS: frozenset({T.AUTHENTICATED, T.QUARANTINED, T.REVOKED, T.REGISTERED}),
     T.QUARANTINED: frozenset({T.REGISTERED, T.REVOKED}),
     T.REVOKED: frozenset({T.REGISTERED}),
     T.OFFLINE: frozenset({T.AUTHENTICATED, T.SUSPICIOUS, T.QUARANTINED, T.REVOKED}),
