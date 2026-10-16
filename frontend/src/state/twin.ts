@@ -12,6 +12,8 @@ import type {
 
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
 export type ViewMode = "holographic" | "realistic";
+/** "reduced" drops post-processing and shadow maps (software renderers, slow GPUs). */
+export type RenderQuality = "full" | "reduced";
 
 export interface Overlays {
   network: boolean;
@@ -62,6 +64,9 @@ interface TwinStore {
   focus: FocusRequest;
   mappingIssues: string[];
   viewMode: ViewMode;
+  renderQuality: RenderQuality;
+  /** Set when the quality was reduced automatically, explaining why. */
+  renderNote: string | null;
 
   loadSnapshot: (snapshot: TwinSnapshot) => void;
   applyEvent: (event: LiveEvent) => void;
@@ -76,6 +81,24 @@ interface TwinStore {
   setMappingIssues: (issues: string[]) => void;
   pruneTransient: (now: number) => void;
   setViewMode: (mode: ViewMode) => void;
+  setRenderQuality: (quality: RenderQuality, note?: string | null) => void;
+}
+
+function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const value = localStorage.getItem(key) as T | null;
+    return value && allowed.includes(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function remember(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage may be unavailable; the choice still applies for this session */
+  }
 }
 
 const FEED_LIMIT = 120;
@@ -101,13 +124,9 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   connection: "connecting",
   focus: { kind: "overview", ids: [], nonce: 0 },
   mappingIssues: [],
-  viewMode: (() => {
-    try {
-      return (localStorage.getItem("md.viewMode") as ViewMode | null) ?? "holographic";
-    } catch {
-      return "holographic";
-    }
-  })(),
+  viewMode: stored<ViewMode>("md.viewMode", ["holographic", "realistic"], "holographic"),
+  renderQuality: stored<RenderQuality>("md.renderQuality", ["full", "reduced"], "full"),
+  renderNote: null,
 
   loadSnapshot: (snapshot) =>
     set({
@@ -204,12 +223,13 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   requestFocus: (kind, ids = []) => set((s) => ({ focus: { kind, ids, nonce: s.focus.nonce + 1 } })),
   setMappingIssues: (mappingIssues) => set({ mappingIssues }),
   setViewMode: (viewMode) => {
-    try {
-      localStorage.setItem("md.viewMode", viewMode);
-    } catch {
-      /* storage may be unavailable; the choice still applies for this session */
-    }
+    remember("md.viewMode", viewMode);
     set({ viewMode });
+  },
+  setRenderQuality: (renderQuality, renderNote = null) => {
+    // Only a user's own choice is remembered; automatic reductions are re-detected each time.
+    if (!renderNote) remember("md.renderQuality", renderQuality);
+    set({ renderQuality, renderNote });
   },
   pruneTransient: (now) =>
     set((s) => {

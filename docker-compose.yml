@@ -1,0 +1,56 @@
+# MedDefender Twin: a local, synthetic demo stack. See README.md, "Quick start".
+#
+#   cp .env.example .env    # then set DEVICE_KEY_MASTER_SECRET (README shows how)
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# Everything here is simulated. Nothing connects to real clinical systems or devices.
+
+name: meddefender-twin
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: meddefender
+      POSTGRES_USER: meddefender
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meddefender-compose-dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meddefender -d meddefender"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    # Demo passwords, origins and generator settings come from .env; the two variables below
+    # are fixed for the stack (the database host is the db service, not localhost).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://meddefender:${POSTGRES_PASSWORD:-meddefender-compose-dev}@db:5432/meddefender
+      DEVICE_KEY_MASTER_SECRET: ${DEVICE_KEY_MASTER_SECRET:?Set DEVICE_KEY_MASTER_SECRET in .env (see README, Quick start)}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      # Bound to localhost only: the demo ships with known passwords.
+      - "127.0.0.1:${MEDDEFENDER_HTTP_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

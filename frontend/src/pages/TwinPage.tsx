@@ -84,6 +84,39 @@ function ViewStyle() {
   );
 }
 
+function EffectsQuality() {
+  const quality = useTwinStore((s) => s.renderQuality);
+  const note = useTwinStore((s) => s.renderNote);
+  const setQuality = useTwinStore((s) => s.setRenderQuality);
+  const options = [
+    { id: "full" as const, label: "Full effects", hint: "Bloom, outlines, ambient occlusion and soft shadows" },
+    { id: "reduced" as const, label: "Reduced", hint: "No post-processing or shadow maps: for software rendering or slow GPUs" },
+  ];
+  return (
+    <div className="mb-2">
+      <div role="radiogroup" aria-label="Rendering effects" className="grid grid-cols-2 gap-0.5 rounded-md border border-line-strong bg-canvas p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={quality === o.id}
+            title={o.hint}
+            onClick={() => setQuality(o.id)}
+            className={cx(
+              "cursor-pointer rounded px-2 py-1 text-[12px] transition-colors",
+              quality === o.id ? "bg-accent-soft font-medium text-accent-strong" : "text-ink-muted hover:text-ink",
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {note ? <p className="mt-1 text-[11px] text-ink-muted">Reduced automatically: {note}.</p> : null}
+    </div>
+  );
+}
+
 function AssetSearch() {
   const assets = useTwinStore((s) => s.assets);
   const select = useTwinStore((s) => s.select);
@@ -399,6 +432,7 @@ export default function TwinPage() {
         </Panel>
         <Panel title="Overlays" icon={Layers}>
           <ViewStyle />
+          <EffectsQuality />
           <fieldset>
             <legend className="sr-only">Overlay visibility</legend>
             <ul className="space-y-1">

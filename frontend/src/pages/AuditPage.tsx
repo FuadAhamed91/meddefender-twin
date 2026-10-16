@@ -11,7 +11,7 @@ export default function AuditPage() {
   const { data = [], isPending, error, refetch } = useAudit(applied);
   const verify = useVerifyAudit();
   const { data: me } = useMe();
-  const canVerify = me?.role !== "VIEWER";
+  const canVerify = me?.permissions.includes("verify_audit") ?? false;
   const input = "h-8 rounded-md border border-line-strong bg-canvas px-2 text-[12.5px] focus:border-accent focus:outline-none";
   return (
     <div className="h-full overflow-y-auto p-3">

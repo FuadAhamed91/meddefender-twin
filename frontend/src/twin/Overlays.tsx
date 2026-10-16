@@ -1,14 +1,45 @@
-import { Edges, Html, Line, QuadraticBezierLine, type QuadraticBezierLineRef } from "@react-three/drei";
+import { Edges, Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { Boxes, X } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
-import { AdditiveBlending, Color, type Mesh, type QuadraticBezierCurve3, Quaternion, ShaderMaterial, Vector3 } from "three";
+import { useMemo, useRef } from "react";
+import {
+  AdditiveBlending,
+  Color,
+  CylinderGeometry,
+  type Mesh,
+  MeshBasicMaterial,
+  QuadraticBezierCurve3,
+  Quaternion,
+  ShaderMaterial,
+  SphereGeometry,
+  Vector3,
+} from "three";
+import type { Line2 } from "three/addons/lines/Line2.js";
 import { useDependencyGraph, useNetworkGraph, useRooms, useZones } from "../api/queries";
 import type { AssetSummary, PolicyOutcome } from "../api/types";
 import { boundsCenter, boundsSize, planToWorld } from "../lib/coords";
 import { OUTCOME, PATH_CLASS } from "../lib/status";
 import { EDGE_TTL_MS, type TransientEdge, useTwinStore } from "../state/twin";
-import { anchorOf, arc } from "./curves";
+import { anchorOf, arc, LINK_HEIGHT } from "./curves";
+import { FatLine } from "./FatLine";
+
+const ARC_SEGMENTS = 24;
+
+/**
+ * Arc between two assets. Keyed on their plan positions rather than on the asset objects,
+ * which are replaced on every live state update, so the line geometry stays put.
+ */
+function useAssetArc(source: AssetSummary | undefined, destination: AssetSummary | undefined, lift: number) {
+  const sx = source?.position?.x;
+  const sy = source?.position?.y;
+  const dx = destination?.position?.x;
+  const dy = destination?.position?.y;
+  return useMemo(() => {
+    if (sx === undefined || sy === undefined || dx === undefined || dy === undefined) return null;
+    const curve = arc(planToWorld(sx, sy, LINK_HEIGHT), planToWorld(dx, dy, LINK_HEIGHT), lift);
+    return { curve, points: curve.getPoints(ARC_SEGMENTS) };
+  }, [sx, sy, dx, dy, lift]);
+}
 
 const UP = new Vector3(0, 1, 0);
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -57,30 +88,21 @@ function FlowArc({
   arrow?: boolean;
   dotted?: boolean;
 }) {
-  const geometry = useMemo(() => {
-    const a = anchorOf(source);
-    const b = anchorOf(destination);
-    if (!a || !b || !source || !destination) return null;
-    const curve = arc(a, b, lift, source.id, destination.id);
-    return { start: curve.v0, mid: curve.v1, end: curve.v2 };
-  }, [source, destination, lift]);
+  const geometry = useAssetArc(source, destination, lift);
   if (!geometry) return null;
+  const { curve, points } = geometry;
   return (
     <group>
-      <QuadraticBezierLine
-        start={geometry.start}
-        end={geometry.end}
-        mid={geometry.mid}
+      <FatLine
+        points={points}
         color={color}
-        lineWidth={width}
+        width={width}
         dashed={dashed}
         dashSize={dotted ? 0.1 : 0.35}
         gapSize={dotted ? 0.22 : 0.25}
-        transparent
         opacity={opacity}
-        depthWrite={false}
       />
-      {arrow ? <Arrow {...geometry} color={color} opacity={opacity} /> : null}
+      {arrow ? <Arrow start={curve.v0} mid={curve.v1} end={curve.v2} color={color} opacity={opacity} /> : null}
     </group>
   );
 }
@@ -110,7 +132,7 @@ export function ZoneOverlay() {
               <planeGeometry args={[x1 - x0, y1 - y0]} />
               <meshBasicMaterial color={zone.color} transparent opacity={0.05} depthWrite={false} />
             </mesh>
-            <Line points={corners} color={zone.color} lineWidth={1} transparent opacity={0.45} depthWrite={false} />
+            <FatLine points={corners} color={zone.color} width={1} opacity={0.45} />
             <Html
               transform
               position={planToWorld(x0 + 0.6, y0 + 0.9, 0.05)}
@@ -176,6 +198,27 @@ export function NetworkOverlay() {
 
 // ---- operational dependencies -----------------------------------------------------------------
 
+function DependencyArc({ from, to, related, dim }: { from: Vector3; to: Vector3; related: boolean; dim: boolean }) {
+  // Keyed on coordinates: the endpoint vectors are rebuilt on every render.
+  const points = useMemo(() => {
+    const a = new Vector3(from.x, from.y, from.z);
+    const b = new Vector3(to.x, to.y, to.z);
+    const mid = a.clone().add(b).multiplyScalar(0.5).add(new Vector3(0, 2.2, 0));
+    return new QuadraticBezierCurve3(a, mid, b).getPoints(ARC_SEGMENTS);
+  }, [from.x, from.y, from.z, to.x, to.y, to.z]);
+  return (
+    <FatLine
+      points={points}
+      color="#a78bfa"
+      width={related ? 2 : 1}
+      dashed
+      dashSize={0.12}
+      gapSize={0.18}
+      opacity={dim ? 0.08 : related ? 0.95 : 0.45}
+    />
+  );
+}
+
 export function DependencyOverlay() {
   const { data } = useDependencyGraph();
   const assets = useTwinStore((s) => s.assets);
@@ -218,23 +261,7 @@ export function DependencyOverlay() {
         if (!a || !b) return null;
         const related = selectedId !== null && (edge.dependent === selectedId || edge.provider === selectedId);
         const dim = selectedId !== null && !related;
-        const mid = a.clone().add(b).multiplyScalar(0.5).add(new Vector3(0, 2.2, 0));
-        return (
-          <QuadraticBezierLine
-            key={edge.id}
-            start={a}
-            end={b}
-            mid={mid}
-            color="#a78bfa"
-            lineWidth={related ? 2 : 1}
-            dashed
-            dashSize={0.12}
-            gapSize={0.18}
-            transparent
-            opacity={dim ? 0.08 : related ? 0.95 : 0.45}
-            depthWrite={false}
-          />
-        );
+        return <DependencyArc key={edge.id} from={a} to={b} related={related} dim={dim} />;
       })}
       {data.nodes
         .filter((n) => n.is_logical && servicePositions[n.id])
@@ -372,11 +399,28 @@ export function AttackPathOverlay() {
 const TRAIL = [0, 0.035, 0.07, 0.105];
 const BLOCK_POINT = 0.55;
 
+// Comets come and go with every live event: they share one geometry and a few long-lived
+// materials (one set per outcome color) instead of creating and disposing them each time.
+const COMET_GEOMETRY = new SphereGeometry(0.15, 14, 14);
+const cometMaterialCache = new Map<string, MeshBasicMaterial[]>();
+
+function cometMaterials(color: string): MeshBasicMaterial[] {
+  let materials = cometMaterialCache.get(color);
+  if (!materials) {
+    // HDR color (above 1.0) so the bloom pass gives the head a soft glow.
+    const glow = new Color(color).multiplyScalar(2.4);
+    materials = TRAIL.map(
+      (_, i) => new MeshBasicMaterial({ color: glow, toneMapped: false, transparent: true, opacity: 1 - i * 0.27, depthWrite: false }),
+    );
+    cometMaterialCache.set(color, materials);
+  }
+  return materials;
+}
+
 function Comet({ curve, color, bornAt, blocked }: { curve: QuadraticBezierCurve3; color: string; bornAt: number; blocked: boolean }) {
   const refs = useRef<(Mesh | null)[]>([]);
   const reduced = useMemo(reducedMotion, []);
-  // HDR color (above 1.0) so the bloom pass gives the head a soft glow.
-  const glow = useMemo(() => new Color(color).multiplyScalar(2.4), [color]);
+  const materials = cometMaterials(color);
   useFrame(() => {
     const age = (Date.now() - bornAt) / 1000;
     const stop = blocked ? BLOCK_POINT : 1;
@@ -398,48 +442,39 @@ function Comet({ curve, color, bornAt, blocked }: { curve: QuadraticBezierCurve3
           ref={(mesh) => {
             refs.current[i] = mesh;
           }}
+          geometry={COMET_GEOMETRY}
+          material={materials[i]}
           scale={1 - i * 0.2}
           raycast={() => undefined}
-        >
-          <sphereGeometry args={[0.15, 14, 14]} />
-          <meshBasicMaterial color={glow} toneMapped={false} transparent opacity={1 - i * 0.27} depthWrite={false} />
-        </mesh>
+        />
       ))}
     </>
   );
 }
 
 function TransientFlow({ edge, source, destination }: { edge: TransientEdge; source: AssetSummary; destination: AssetSummary }) {
-  const line = useRef<QuadraticBezierLineRef>(null);
-  const curve = useMemo(() => {
-    const a = anchorOf(source);
-    const b = anchorOf(destination);
-    return a && b ? arc(a, b, 1.2, source.id, destination.id) : null;
-  }, [source, destination]);
+  const line = useRef<Line2>(null);
+  const geometry = useAssetArc(source, destination, 1.2);
   // Fade the arc out over its lifetime instead of letting it vanish abruptly.
   useFrame(() => {
     const material = line.current?.material;
     if (material) material.opacity = 0.85 * Math.max(0, 1 - (Date.now() - edge.at) / EDGE_TTL_MS);
   });
-  if (!curve) return null;
+  if (!geometry) return null;
   const color = OUTCOME_LINE[edge.outcome]?.color ?? "#22c3d6";
   return (
     <group>
-      <QuadraticBezierLine
+      <FatLine
         ref={line}
-        start={curve.v0}
-        end={curve.v2}
-        mid={curve.v1}
+        points={geometry.points}
         color={color}
-        lineWidth={2.2}
+        width={2.2}
         dashed={edge.outcome !== "PERMITTED"}
         dashSize={0.3}
         gapSize={0.2}
-        transparent
         opacity={0.85}
-        depthWrite={false}
       />
-      <Comet curve={curve} color={color} bornAt={edge.at} blocked={edge.outcome === "BLOCKED"} />
+      <Comet curve={geometry.curve} color={color} bornAt={edge.at} blocked={edge.outcome === "BLOCKED"} />
     </group>
   );
 }
@@ -524,24 +559,37 @@ const BEAM_FRAG = /* glsl */ `
     gl_FragColor = vec4(uColor * (0.8 + 1.2 * core), uOpacity * (0.25 + 0.75 * core) * fade);
   }`;
 
+// Beams appear and disappear with selection and state changes; like comets they share one
+// geometry and cached materials so their shader program is compiled once.
+const BEAM_GEOMETRY = new CylinderGeometry(0.32, 0.32, 4.5, 24, 1, true);
+const beamMaterialCache = new Map<string, ShaderMaterial>();
+
+function beamMaterial(color: string, opacity: number): ShaderMaterial {
+  const key = `${color}/${opacity}`;
+  let material = beamMaterialCache.get(key);
+  if (!material) {
+    material = new ShaderMaterial({
+      uniforms: { uColor: { value: new Color(color) }, uOpacity: { value: opacity } },
+      vertexShader: BEAM_VERT,
+      fragmentShader: BEAM_FRAG,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+    });
+    beamMaterialCache.set(key, material);
+  }
+  return material;
+}
+
 function Beam({ at, color, opacity }: { at: Vector3; color: string; opacity: number }) {
-  const material = useMemo(
-    () =>
-      new ShaderMaterial({
-        uniforms: { uColor: { value: new Color(color) }, uOpacity: { value: opacity } },
-        vertexShader: BEAM_VERT,
-        fragmentShader: BEAM_FRAG,
-        transparent: true,
-        depthWrite: false,
-        blending: AdditiveBlending,
-      }),
-    [color, opacity],
-  );
-  useEffect(() => () => material.dispose(), [material]);
   return (
-    <mesh position={[at.x, 2.25, at.z]} material={material} raycast={() => undefined} renderOrder={3}>
-      <cylinderGeometry args={[0.32, 0.32, 4.5, 24, 1, true]} />
-    </mesh>
+    <mesh
+      position={[at.x, 2.25, at.z]}
+      geometry={BEAM_GEOMETRY}
+      material={beamMaterial(color, opacity)}
+      raycast={() => undefined}
+      renderOrder={3}
+    />
   );
 }
 

@@ -1,7 +1,7 @@
 import { CameraControls, Environment as EnvironmentMap, Grid, Html, Lightformer, PerformanceMonitor, useProgress } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Component, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BackSide, Box3, Color, type DirectionalLight, type Mesh, ShaderMaterial, Sphere, Vector3 } from "three";
+import { BackSide, Box3, Color, type DirectionalLight, type Mesh, ShaderMaterial, Sphere, Vector3, type WebGLRenderer } from "three";
 import { useZones } from "../api/queries";
 import { FLOOR_BOUNDS, planToWorld } from "../lib/coords";
 import { useTwinStore } from "../state/twin";
@@ -197,7 +197,7 @@ function Backdrop({ holo }: { holo: boolean }) {
 }
 
 /** Key light for the realistic view; casts soft shadows from walls and equipment. */
-function SunLight() {
+function SunLight({ shadows }: { shadows: boolean }) {
   const ref = useRef<DirectionalLight>(null);
   useLayoutEffect(() => {
     const light = ref.current;
@@ -209,7 +209,7 @@ function SunLight() {
   return (
     <directionalLight
       ref={ref}
-      castShadow
+      castShadow={shadows}
       position={[SITE_CENTER.x + 32, 34, SITE_CENTER.z + 30]}
       intensity={1.35}
       color="#fff1dc"
@@ -227,7 +227,7 @@ function SunLight() {
   );
 }
 
-function Atmosphere() {
+function Atmosphere({ shadows }: { shadows: boolean }) {
   const mode = useTwinStore((s) => s.viewMode);
   const holo = mode === "holographic";
   const sky = holo ? SKY.holographic : SKY.realistic;
@@ -280,7 +280,7 @@ function Atmosphere() {
         <>
           {/* Cool sky fill against a warm sun: shadows read slightly blue, lit areas warm. */}
           <hemisphereLight args={["#b3c8f0", "#1c2430", 0.6]} />
-          <SunLight />
+          <SunLight shadows={shadows} />
           <directionalLight position={[-30, 30, -40]} intensity={0.25} color="#b8d4ff" />
           {/* Unlit dark ground: a calm backdrop that never competes with the building. */}
           <mesh position={ground} rotation={[-Math.PI / 2, 0, 0]}>
@@ -293,22 +293,40 @@ function Atmosphere() {
   );
 }
 
+// Renderers without GPU acceleration (headless browsers, VMs, remote desktops).
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+
+function rendererName(gl: WebGLRenderer): string {
+  const context = gl.getContext();
+  const info = context.getExtension("WEBGL_debug_renderer_info");
+  return String(context.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : context.RENDERER));
+}
+
 export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void }) {
   const select = useTwinStore((s) => s.select);
+  const full = useTwinStore((s) => s.renderQuality === "full");
   const [dpr, setDpr] = useState(() => Math.min(1.5, window.devicePixelRatio || 1));
   return (
     <Canvas
       camera={{ position: INTRO.position.toArray(), fov: 42, near: 0.3, far: 400 }}
-      dpr={dpr}
+      dpr={full ? dpr : 1}
       shadows="percentage"
-      gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
+      // Full quality anti-aliases in the effect composer (MSAA); context options are fixed at
+      // creation, so native anti-aliasing applies when the session starts in reduced mode.
+      gl={{ antialias: !full, powerPreference: "high-performance", stencil: false }}
+      onCreated={({ gl }) => {
+        // Post-processing on a CPU rasteriser would stall the whole page: reduce automatically.
+        if (full && SOFTWARE_RENDERER.test(rendererName(gl))) {
+          useTwinStore.getState().setRenderQuality("reduced", "software rendering, no GPU acceleration");
+        }
+      }}
       onPointerMissed={() => select(null)}
       aria-label="3D digital twin of the simulated hospital"
       role="img"
     >
       {/* Adaptive quality: drop resolution on slow GPUs, raise it again when there is headroom. */}
       <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(Math.min(2, window.devicePixelRatio || 1))} />
-      <Atmosphere />
+      <Atmosphere shadows={full} />
       <Suspense fallback={<Loader />}>
         <ModelBoundary
           fallback={
@@ -334,7 +352,7 @@ export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void })
       <TransientFlows />
       <AssetMarkers />
       <CameraRig />
-      <Effects />
+      {full ? <Effects /> : null}
       {import.meta.env.DEV ? <DevCapture /> : null}
     </Canvas>
   );

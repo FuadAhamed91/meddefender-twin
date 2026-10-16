@@ -1,0 +1,11 @@
+# Build context for backend/Dockerfile (context: repository root). Allowlist: the image
+# only needs the backend sources and the shared hospital layout. Never send .env or data.
+*
+!backend/
+!shared/
+backend/.venv/
+backend/tests/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/**/__pycache__/
+backend/.env

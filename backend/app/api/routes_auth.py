@@ -23,6 +23,7 @@ ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
         "apply_containment",
         "execute_recovery",
         "toggle_generator",
+        "verify_audit",
     ],
     UserRole.SECURITY_ADMIN: [
         "view",
