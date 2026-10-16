@@ -26,6 +26,7 @@ export interface FatLineProps {
  */
 export function FatLine({ points, color, width, opacity, dashed = false, dashSize = 0.35, gapSize = 0.25, ref }: FatLineProps) {
   const size = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
   const line = useMemo(() => {
     const material = new LineMaterial({ transparent: true, depthWrite: false, dashed });
     return new Line2(new LineGeometry(), material);
@@ -34,7 +35,8 @@ export function FatLine({ points, color, width, opacity, dashed = false, dashSiz
   useLayoutEffect(() => {
     line.geometry.setPositions(points.flatMap((p) => [p.x, p.y, p.z]));
     line.computeLineDistances();
-  }, [line, points]);
+    invalidate();
+  }, [line, points, invalidate]);
 
   useLayoutEffect(() => {
     const material = line.material;
@@ -44,7 +46,8 @@ export function FatLine({ points, color, width, opacity, dashed = false, dashSiz
     material.dashSize = dashSize;
     material.gapSize = gapSize;
     material.resolution.set(size.width, size.height);
-  }, [line, color, width, opacity, dashSize, gapSize, size]);
+    invalidate();
+  }, [line, color, width, opacity, dashSize, gapSize, size, invalidate]);
 
   // The geometry owns GPU buffers and is released. The material is intentionally not disposed:
   // it holds no GPU memory itself, and keeping its program reference alive means the next

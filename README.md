@@ -9,6 +9,10 @@
 > clinical infrastructure or medical devices, and it makes no claim of clinical safety,
 > regulatory compliance, certification or production readiness.
 
+**Live deployment:** https://meddefender-twin.vercel.app (Vercel + Supabase, synthetic data;
+sign-in accounts are private to the deployment's owner). See
+[Deploy to Vercel](#deploy-to-vercel-serverless).
+
 ![Holographic security view of the simulated hospital floor](docs/images/twin-holographic.jpg)
 
 MedDefender Twin simulates one hospital floor (ICU, imaging suite, server room and building
@@ -28,6 +32,7 @@ what a containment decision would disrupt. It never invents security state of it
 
 - [What it does](#what-it-does)
 - [Quick start (Docker Compose)](#quick-start-docker-compose)
+- [Deploy to Vercel (serverless)](#deploy-to-vercel-serverless)
 - [Local development](#local-development)
 - [Configuration](#configuration)
 - [Tests](#tests)
@@ -145,6 +150,41 @@ docker compose down        # stop (data is kept in the pgdata volume)
 docker compose down -v     # stop and delete the database volume
 ```
 
+## Deploy to Vercel (serverless)
+
+The same code runs on Vercel: the console is served as static files and the API as a Python
+function ([api/index.py](api/index.py), configured in [vercel.json](vercel.json)), backed by
+any PostgreSQL that is reachable over IPv4 through a connection pooler (the live
+deployment uses Supabase). Serverless hosts allow no background processes or WebSocket
+servers, so with `SERVERLESS=true`:
+
+- the console polls `GET /api/v1/events?since=<id>` every 3 seconds (the same persisted
+  events the WebSocket streams) and stops while the tab is hidden;
+- the simulation advances when those polls arrive (one tick per interval, coordinated
+  through the database, never during a scenario run), so it is idle while nobody watches;
+- database connections are not pooled in the function; use the provider's transaction
+  pooler, which also rules out server-side prepared statements (disabled automatically).
+
+Steps:
+
+1. **Database.** Create a PostgreSQL 16+ database. Put the tables in a dedicated schema
+   owned by a dedicated role, not in a schema your provider exposes through an
+   auto-generated API (for Supabase, not `public`). For example:
+   `create role meddefender_app login password '...'`, then
+   `create schema meddefender authorization meddefender_app` and
+   `alter role meddefender_app set search_path = meddefender`.
+2. **Schema and seed**, from `backend/`, with `DATABASE_URL` pointing at the database (a
+   session-mode connection), plus a fresh `DEVICE_KEY_MASTER_SECRET` and strong
+   `DEMO_PASSWORD_*` values: `uv run alembic upgrade head` and `uv run python -m app.seed`.
+3. **Vercel project.** `vercel link`, then add these production environment variables:
+   `DATABASE_URL` (the *transaction* pooler URL, `postgresql+psycopg://...`),
+   `DEVICE_KEY_MASTER_SECRET` (the same value the seed used), `ENVIRONMENT=production`,
+   `COOKIE_SECURE=true`, `SERVERLESS=true`.
+4. **Deploy:** `vercel deploy --prod`. Check `https://<your-domain>/api/v1/health`.
+
+`requirements.txt` at the repository root is exported from `backend/uv.lock` for the
+function (`uv export --frozen --no-dev --no-hashes --no-emit-project`).
+
 ## Local development
 
 Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24, and either
@@ -217,7 +257,7 @@ All settings are environment variables (or `.env` at the repository root).
 
 | Suite | Command | Last local run |
 |---|---|---|
-| Backend: unit, integration and security tests against a real PostgreSQL (schema built by the Alembic migrations) | `cd backend && uv run pytest -q` | 63 passed |
+| Backend: unit, integration and security tests against a real PostgreSQL (schema built by the Alembic migrations) | `cd backend && uv run pytest -q` | 68 passed |
 | Frontend: unit and component tests (Vitest, jsdom) | `cd frontend && npm test` | 53 passed |
 | End to end: Playwright against a running stack (`E2E_BASE_URL`, default the dev server) | `cd frontend && npx playwright test` | 4 passed |
 

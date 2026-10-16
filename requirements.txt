@@ -1,0 +1,91 @@
+# Python dependencies of the Vercel function (api/index.py), exported from backend/uv.lock:
+#   cd backend && uv export --frozen --no-dev --no-hashes --no-emit-project --format requirements-txt
+alembic==1.20.0
+    # via meddefender-backend
+annotated-doc==0.0.5
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.15.1
+    # via
+    #   starlette
+    #   watchfiles
+argon2-cffi==25.1.0
+    # via meddefender-backend
+argon2-cffi-bindings==26.1.0
+    # via argon2-cffi
+cffi==2.1.1
+    # via argon2-cffi-bindings
+click==8.5.0
+    # via uvicorn
+fastapi==0.143.2
+    # via meddefender-backend
+greenlet==3.5.6 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+    # via sqlalchemy
+h11==0.16.0
+    # via uvicorn
+httptools==0.9.0
+    # via uvicorn
+idna==3.20
+    # via anyio
+mako==1.4.3
+    # via alembic
+markupsafe==3.0.4
+    # via mako
+opentelemetry-api==1.45.1
+    # via fastapi
+psycopg==3.3.6
+    # via meddefender-backend
+psycopg-binary==3.3.6 ; implementation_name != 'pypy'
+    # via psycopg
+pycparser==3.11 ; implementation_name != 'PyPy'
+    # via cffi
+pydantic==2.14.1
+    # via
+    #   fastapi
+    #   meddefender-backend
+    #   pydantic-settings
+pydantic-core==2.50.1
+    # via pydantic
+pydantic-settings==2.16.0
+    # via meddefender-backend
+python-dotenv==1.2.4
+    # via
+    #   pydantic-settings
+    #   uvicorn
+pyyaml==6.0.3
+    # via uvicorn
+sqlalchemy==2.0.54
+    # via
+    #   alembic
+    #   meddefender-backend
+starlette==1.8.0
+    # via fastapi
+typing-extensions==4.16.0
+    # via
+    #   alembic
+    #   anyio
+    #   fastapi
+    #   opentelemetry-api
+    #   psycopg
+    #   pydantic
+    #   pydantic-core
+    #   pydantic-settings
+    #   sqlalchemy
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via
+    #   fastapi
+    #   pydantic
+    #   pydantic-settings
+tzdata==2026.5 ; sys_platform == 'win32'
+    # via psycopg
+uvicorn==0.54.0
+    # via meddefender-backend
+uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+    # via uvicorn
+watchfiles==1.3.0
+    # via uvicorn
+websockets==17.2
+    # via uvicorn

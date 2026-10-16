@@ -25,6 +25,7 @@ from app.models import (
     PolicyDecision,
     SecurityAlert,
     SimDevice,
+    SimulationRun,
     SimulationState,
     TelemetryEvent,
     TwinState,
@@ -39,6 +40,7 @@ from app.models.enums import (
     PolicyType,
     RelationshipOrigin,
     RelationshipType,
+    SimulationRunStatus,
     TelemetryDecision,
     TrustState,
 )
@@ -77,15 +79,37 @@ class SimulationRuntime:
 
     # ---- one tick ---------------------------------------------------------------------------
 
-    def tick(self) -> dict[str, Any]:
+    def tick(self, *, only_if_due: bool = False) -> dict[str, Any]:
         if not self.scenario_lock.acquire(blocking=False):
             return {"skipped": "scenario running"}
         try:
-            return self._tick()
+            return self._tick(only_if_due=only_if_due)
         finally:
             self.scenario_lock.release()
 
-    def _tick(self) -> dict[str, Any]:
+    def tick_if_due(self) -> dict[str, Any]:
+        """Serverless hosts have no background loop: advance the world on demand instead.
+
+        Called on live-event polls. Ticks only when the last tick is at least one interval old
+        (re-checked under the state row lock, so concurrent instances tick once) and never
+        while a scenario run is in progress on any instance (the in-process lock cannot see
+        other instances; the persisted run status can).
+        """
+        recent = self.services.clock.now() - timedelta(minutes=2)
+        with self.services.session_factory() as session:
+            running = session.scalar(
+                select(
+                    exists().where(
+                        SimulationRun.status == SimulationRunStatus.RUNNING,
+                        SimulationRun.started_at > recent,
+                    )
+                )
+            )
+        if running:
+            return {"skipped": "scenario running"}
+        return self.tick(only_if_due=True)
+
+    def _tick(self, *, only_if_due: bool = False) -> dict[str, Any]:
         now = self.services.clock.now()
         interval = self.services.settings.generator_interval_seconds
         plans: list[tuple[str, MessageType, dict[str, Any], str | None]] = []
@@ -93,6 +117,12 @@ class SimulationRuntime:
             state = session.get(SimulationState, 1, with_for_update=True)
             if state is None:
                 return {"skipped": "not seeded"}
+            if (
+                only_if_due
+                and state.last_tick_at is not None
+                and (now - state.last_tick_at).total_seconds() < interval
+            ):
+                return {"skipped": "not due"}
             if not state.generator_enabled:
                 enabled = False
                 tick = state.tick_count

@@ -1,18 +1,35 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 import type { LiveEvent, TwinSnapshot } from "../api/types";
 import { useTwinStore } from "./twin";
 
+interface PollResponse {
+  latest_event_id: number;
+  epoch: number;
+  resync_required: boolean;
+  events: LiveEvent[];
+}
+
+const POLL_INTERVAL_MS = 3000;
+// Builds for hosts without WebSockets (serverless) poll from the start.
+const POLL_ONLY = import.meta.env.VITE_LIVE_TRANSPORT === "poll";
+
 /**
- * Live connection to /ws/events.
+ * Live connection to the backend's persisted event stream.
  *
  * - Loads the authoritative snapshot (GET /api/v1/twin/state) first.
- * - Connects with ?since=<last_event_id> so missed events are replayed by the server.
- * - Reconnects with exponential backoff; on "resync_required" refetches the snapshot.
+ * - Streams over /ws/events?since=<last_event_id> so missed events are replayed by the server,
+ *   reconnecting with exponential backoff. Where WebSockets are unavailable (a build flag, or
+ *   two failed connection attempts) it polls GET /api/v1/events?since=<id> instead, which
+ *   returns the same persisted events.
+ * - On "resync_required" refetches the snapshot.
  * - Never derives security state locally: every update comes from a persisted backend event.
  */
 export class LiveConnection {
   private socket: WebSocket | null = null;
+  private polling = POLL_ONLY;
+  private everOpened = false;
+  private pollTimer: number | null = null;
   private stopped = false;
   private attempt = 0;
   private retryTimer: number | null = null;
@@ -26,13 +43,15 @@ export class LiveConnection {
     this.stopped = false;
     useTwinStore.getState().setConnection("connecting");
     await this.resync();
-    this.connect();
+    if (this.polling) this.poll();
+    else this.connect();
     this.pruneTimer = window.setInterval(() => useTwinStore.getState().pruneTransient(Date.now()), 1500);
   }
 
   stop(): void {
     this.stopped = true;
     if (this.retryTimer) window.clearTimeout(this.retryTimer);
+    if (this.pollTimer) window.clearTimeout(this.pollTimer);
     if (this.invalidateTimer) window.clearTimeout(this.invalidateTimer);
     if (this.pruneTimer) window.clearInterval(this.pruneTimer);
     this.socket?.close();
@@ -57,6 +76,7 @@ export class LiveConnection {
 
     socket.onopen = () => {
       this.attempt = 0;
+      this.everOpened = true;
       useTwinStore.getState().setConnection("live");
     };
     socket.onmessage = (message) => {
@@ -77,10 +97,51 @@ export class LiveConnection {
         return;
       }
       useTwinStore.getState().setConnection("reconnecting");
-      const delay = Math.min(15000, 1000 * 2 ** this.attempt) + Math.random() * 400;
       this.attempt += 1;
+      if (!this.everOpened && this.attempt >= 2) {
+        // The host does not accept WebSockets: switch to polling for this session.
+        this.polling = true;
+        this.attempt = 0;
+        this.poll();
+        return;
+      }
+      const delay = Math.min(15000, 1000 * 2 ** (this.attempt - 1)) + Math.random() * 400;
       this.retryTimer = window.setTimeout(() => this.connect(), delay);
     };
+  }
+
+  private async poll(): Promise<void> {
+    if (this.stopped) return;
+    let next = POLL_INTERVAL_MS;
+    if (document.visibilityState === "hidden") {
+      // Nobody is watching: skip the request (each poll is a function invocation on serverless
+      // hosts). Missed events are fetched by the next visible poll.
+      this.pollTimer = window.setTimeout(() => void this.poll(), next);
+      return;
+    }
+    try {
+      const since = useTwinStore.getState().lastEventId;
+      const response = await api.get<PollResponse>(`/api/v1/events?since=${since}`);
+      if (this.stopped) return;
+      this.attempt = 0;
+      useTwinStore.getState().setConnection("live");
+      if (response.resync_required) {
+        this.handle({ type: "resync_required" });
+      } else {
+        for (const event of response.events) this.handle(event);
+      }
+    } catch (error) {
+      if (this.stopped) return;
+      if (error instanceof ApiError && error.status === 401) {
+        useTwinStore.getState().setConnection("offline");
+        this.queryClient.setQueryData(["me"], null);
+        return;
+      }
+      useTwinStore.getState().setConnection("reconnecting");
+      this.attempt += 1;
+      next = Math.min(15000, POLL_INTERVAL_MS * 2 ** this.attempt);
+    }
+    this.pollTimer = window.setTimeout(() => void this.poll(), next);
   }
 
   private handle(event: LiveEvent): void {

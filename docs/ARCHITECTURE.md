@@ -303,7 +303,10 @@ The console is a React single-page app; the twin is a React Three Fiber scene in
   potential attack paths are drawn statically so they are not mistaken for traffic.
 * **Rendering.** Two view styles (holographic: fresnel hologram shaders, gridded floors,
   bloom; realistic: shadow-mapped key light, image-based lighting from procedural light
-  panels, ambient occlusion, floor tiles) and two effect levels. *Reduced* (no
+  panels, ambient occlusion, floor tiles) and two effect levels. The canvas renders on
+  demand: frames are drawn while the camera moves or state changes, and at about 30 frames
+  per second while short-lived live-flow animations exist, but never while the scene is
+  idle; the shadow map is redrawn only when the model or view changes. *Reduced* (no
   post-processing, shadow maps or environment lighting) is selected before the 3D view is
   created when a probe shows WebGL running on a software renderer; there the scene also
   renders on demand at about 10 frames per second and at lower resolution, because
@@ -332,6 +335,17 @@ backend ─▶ db:5432 (PostgreSQL 16, named volume)
   so its forwarded headers can only come from nginx.
 * Services start in dependency order, gated on healthchecks; the web port is bound to
   127.0.0.1 because the demo accounts have known passwords.
+
+### Serverless variant (Vercel)
+
+With `SERVERLESS=true` the API runs as a Vercel Python function: services are wired at
+import (no lifespan dependency), nothing runs in the background, and connections go through
+the database provider's transaction pooler without a client-side pool or prepared
+statements. Live updates use `GET /api/v1/events?since=<id>` polling over the same
+persisted `event_log`, and each poll advances the simulation when a generator tick is due.
+The tick re-checks under the simulation-state row lock (so concurrent instances tick once)
+and skips while any scenario run is in progress, which replaces the in-process scenario
+lock across instances.
 
 ## 11. Known architectural limitations
 

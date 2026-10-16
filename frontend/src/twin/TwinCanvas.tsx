@@ -1,6 +1,6 @@
-import { CameraControls, Environment as EnvironmentMap, Grid, Html, Lightformer, PerformanceMonitor, useProgress } from "@react-three/drei";
+import { CameraControls, Environment as EnvironmentMap, Grid, Html, Lightformer, useProgress } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Component, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Component, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { BackSide, Box3, Color, type DirectionalLight, type Mesh, type PerspectiveCamera, ShaderMaterial, Sphere, Vector3 } from "three";
 import { useZones } from "../api/queries";
 import { FLOOR_BOUNDS, planToWorld } from "../lib/coords";
@@ -48,6 +48,7 @@ function CameraRig() {
   const ref = useRef<CameraControls>(null);
   const focus = useTwinStore((s) => s.focus);
   const { data: zones = [] } = useZones();
+  const invalidate = useThree((s) => s.invalidate);
 
   useEffect(() => {
     const controls = ref.current;
@@ -57,11 +58,13 @@ function CameraRig() {
       if (focus.nonce === 0 && introPending && !reducedMotion()) {
         // Park the camera at the establishing shot; IntroFlight glides in once the model loads.
         void controls.setLookAt(...INTRO.position.toArray(), ...INTRO.target.toArray(), false);
+        invalidate();
         return;
       }
       const animate = focus.nonce > 0;
       void controls.setLookAt(...OVERVIEW.position.toArray(), ...OVERVIEW.target.toArray(), animate);
       void controls.fitToSphere(overviewSphere(aspectOf(controls)), animate);
+      invalidate();
       return;
     }
     if (focus.kind === "asset") {
@@ -91,7 +94,7 @@ function CameraRig() {
     const size = box.getSize(new Vector3());
     const distance = Math.max(size.x, size.z) * 1.05 + 8;
     void controls.setLookAt(center.x, distance * 0.95, center.z + distance * 0.62, center.x, 0, center.z, true);
-  }, [focus, zones]);
+  }, [focus, zones, invalidate]);
 
   return (
     <CameraControls
@@ -159,6 +162,7 @@ const SKY = {
 /** Gradient sky dome that follows the camera: a horizon glow gives the scene depth. */
 function Backdrop({ holo }: { holo: boolean }) {
   const ref = useRef<Mesh>(null);
+  const invalidate = useThree((s) => s.invalidate);
   const material = useMemo(
     () =>
       new ShaderMaterial({
@@ -194,7 +198,8 @@ function Backdrop({ holo }: { holo: boolean }) {
     material.uniforms.uTop.value.set(sky.top);
     material.uniforms.uHorizon.value.set(sky.horizon);
     material.uniforms.uBottom.value.set(sky.bottom);
-  }, [holo, material]);
+    invalidate();
+  }, [holo, material, invalidate]);
   useEffect(() => () => material.dispose(), [material]);
   useFrame(({ camera }) => ref.current?.position.copy(camera.position));
   return (
@@ -207,6 +212,16 @@ function Backdrop({ holo }: { holo: boolean }) {
 /** Key light for the realistic view; casts soft shadows from walls and equipment. */
 function SunLight({ shadows }: { shadows: boolean }) {
   const ref = useRef<DirectionalLight>(null);
+  const gl = useThree((s) => s.gl);
+  // Nothing that casts a shadow ever moves, so render the 4096² shadow map on demand (when the
+  // model or view changes; HospitalModel requests it) instead of on every frame.
+  useLayoutEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = true;
+    return () => {
+      gl.shadowMap.autoUpdate = true;
+    };
+  }, [gl, shadows]);
   useLayoutEffect(() => {
     const light = ref.current;
     if (!light) return;
@@ -243,9 +258,11 @@ function Atmosphere({ full }: { full: boolean }) {
   const ground = new Vector3(SITE_CENTER.x, -0.32, SITE_CENTER.z);
   const gl = useThree((s) => s.gl);
   // Read by the tone-mapping pass: the light interior needs a little less exposure on a dark UI.
+  const invalidate = useThree((s) => s.invalidate);
   useLayoutEffect(() => {
     gl.toneMappingExposure = holo ? 1 : 0.82;
-  }, [gl, holo]);
+    invalidate();
+  }, [gl, holo, invalidate]);
   return (
     <>
       <color attach="background" args={[sky.top]} />
@@ -304,17 +321,20 @@ function Atmosphere({ full }: { full: boolean }) {
   );
 }
 
-// On a CPU rasteriser every frame is expensive: render on demand, at most this often.
-const CPU_FRAME_INTERVAL_MS = 100;
-
-/** Requests frames at a fixed, modest rate (demand frameloop): animations still advance, but
- *  frames never queue up faster than a software renderer can draw them. */
-function FrameCap() {
+/**
+ * The canvas renders on demand: frames are drawn when something changes (camera movement,
+ * state updates), and never while the scene is idle. Ambient animation (live-flow comets,
+ * alert pulses) exists only for a few seconds after live events; while it does, this keeps
+ * requesting frames at a modest rate. On a CPU rasteriser the rate is lower still.
+ */
+function AnimationDriver({ intervalMs }: { intervalMs: number }) {
   const invalidate = useThree((s) => s.invalidate);
+  const animating = useTwinStore((s) => s.transientEdges.length > 0 || Object.keys(s.flashes).length > 0);
   useEffect(() => {
-    const timer = window.setInterval(() => invalidate(), CPU_FRAME_INTERVAL_MS);
+    if (!animating) return;
+    const timer = window.setInterval(() => invalidate(), intervalMs);
     return () => window.clearInterval(timer);
-  }, [invalidate]);
+  }, [animating, intervalMs, invalidate]);
   return null;
 }
 
@@ -322,14 +342,12 @@ export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void })
   const select = useTwinStore((s) => s.select);
   const full = useTwinStore((s) => s.renderQuality === "full");
   const cpu = useTwinStore((s) => s.cpuRenderer);
-  const [dpr, setDpr] = useState(() => Math.min(1.5, window.devicePixelRatio || 1));
   return (
     <Canvas
       camera={{ position: INTRO.position.toArray(), fov: 42, near: 0.3, far: 400 }}
-      // Unbounded frames on a CPU rasteriser pile up and starve the page; cap them and render
-      // fewer pixels there.
-      frameloop={cpu ? "demand" : "always"}
-      dpr={cpu ? 0.6 : full ? dpr : 1}
+      // Render only when something changes (see AnimationDriver). Fewer pixels on a CPU renderer.
+      frameloop="demand"
+      dpr={cpu ? 0.6 : full ? Math.min(1.5, window.devicePixelRatio || 1) : 1}
       shadows="percentage"
       // Full quality anti-aliases in the effect composer (MSAA); context options are fixed at
       // creation, so native anti-aliasing applies when the session starts in reduced mode.
@@ -338,9 +356,7 @@ export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void })
       aria-label="3D digital twin of the simulated hospital"
       role="img"
     >
-      {/* Adaptive quality: drop resolution on slow GPUs, raise it again when there is headroom. */}
-      <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(Math.min(2, window.devicePixelRatio || 1))} />
-      {cpu ? <FrameCap /> : null}
+      <AnimationDriver intervalMs={cpu ? 100 : 33} />
       <Atmosphere full={full} />
       <Suspense fallback={<Loader />}>
         <ModelBoundary

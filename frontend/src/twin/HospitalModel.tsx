@@ -1,5 +1,5 @@
 import { useGLTF } from "@react-three/drei";
-import type { ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import {
   Color,
@@ -94,6 +94,8 @@ export function HospitalModel() {
   const select = useTwinStore((s) => s.select);
   const hover = useTwinStore((s) => s.hover);
   const setMappingIssues = useTwinStore((s) => s.setMappingIssues);
+  const invalidate = useThree((s) => s.invalidate);
+  const gl = useThree((s) => s.gl);
 
   // One pass over the scene: index asset nodes, classify architecture, remember original
   // materials, give each asset its own material instances and build edge overlays.
@@ -161,7 +163,10 @@ export function HospitalModel() {
   useEffect(() => {
     applyViewMode(viewMode, index.parts, holo);
     for (const line of index.edges) line.visible = viewMode === "holographic";
-  }, [viewMode, index, holo]);
+    // The static shadow map (see SunLight) must be redrawn once the model or its materials change.
+    gl.shadowMap.needsUpdate = true;
+    invalidate();
+  }, [viewMode, index, holo, invalidate, gl]);
 
   // Device materials: a per-mode baseline, then backend-driven tints for abnormal states.
   useEffect(() => {
@@ -200,7 +205,8 @@ export function HospitalModel() {
         }
       });
     }
-  }, [assets, index, selectedId, hoveredId, viewMode]);
+    invalidate();
+  }, [assets, index, selectedId, hoveredId, viewMode, invalidate]);
 
   const onClick = (event: ThreeEvent<MouseEvent>) => {
     const id = assetIdOf(event.object);

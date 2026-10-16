@@ -1,4 +1,4 @@
-import { type RootState, useThree } from "@react-three/fiber";
+import { type RootState, useFrame, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
 
 declare global {
@@ -7,6 +7,8 @@ declare global {
     __twinCapture?: (frames?: number) => string;
     /** Dev builds only: the live react-three-fiber state, for inspection from the console. */
     __twinState?: () => RootState;
+    /** Dev builds only: number of frames rendered so far (the canvas renders on demand). */
+    __twinFrames?: number;
   }
 }
 
@@ -18,6 +20,9 @@ export function DevCapture() {
   const advance = useThree((s) => s.advance);
   const gl = useThree((s) => s.gl);
   const get = useThree((s) => s.get);
+  useFrame(() => {
+    window.__twinFrames = (window.__twinFrames ?? 0) + 1;
+  });
   useEffect(() => {
     window.__twinCapture = (frames = 1) => {
       for (let i = 0; i < frames; i++) advance(performance.now());

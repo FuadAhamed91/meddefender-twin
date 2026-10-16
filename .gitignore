@@ -40,3 +40,6 @@ Thumbs.db
 
 # Local editor/agent tooling
 .claude/
+
+# Vercel CLI project link
+.vercel/

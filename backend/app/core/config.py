@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 10
     nonce_retention_hours: int = 24
 
+    # Serverless hosting (e.g. Vercel functions): no background loop or WebSockets. The
+    # simulation advances on live-event polls, and database connections are not pooled in
+    # process (a transaction-mode pooler such as Supabase's handles that).
+    serverless: bool = False
+
     # Simulation
     generator_enabled: bool = True
     generator_interval_seconds: float = 5.0

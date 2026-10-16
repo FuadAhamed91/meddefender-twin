@@ -36,7 +36,7 @@ export function Effects() {
   if (mode === "realistic") {
     return (
       <EffectComposer key="realistic" multisampling={4} autoClear={false}>
-        <N8AO aoRadius={2} distanceFalloff={1} intensity={3.2} quality="medium" halfRes />
+        <N8AO aoRadius={2} distanceFalloff={1} intensity={3.2} quality="performance" halfRes />
         {/* Bloom runs before tone mapping, so a threshold above 1 catches only emissive signage. */}
         <Bloom intensity={0.5} luminanceThreshold={1.3} luminanceSmoothing={0.1} mipmapBlur radius={0.5} />
         <Outline selection={selection} visibleEdgeColor={0x22c3d6} hiddenEdgeColor={0x0e7490} edgeStrength={5} blur xRay />

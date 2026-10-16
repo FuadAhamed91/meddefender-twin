@@ -1,0 +1,22 @@
+# Upload only what the Vercel build and the API function need. Never local secrets or data.
+.git
+.github
+.env
+.env.*
+!.env.example
+.vercel
+.localdb
+.claude
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+backend/tests
+backend/scripts
+blender
+docs
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+frontend/e2e

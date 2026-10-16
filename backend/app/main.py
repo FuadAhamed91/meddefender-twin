@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     routes_auth,
+    routes_events,
     routes_incidents,
     routes_security,
     routes_simulation,
@@ -78,6 +79,22 @@ def create_app(
     settings.assert_production_safe()
     logging.basicConfig(level=settings.log_level)
 
+    def wire(app: FastAPI, svc: AppServices) -> SimulationRuntime:
+        pipeline = IngestionPipeline(
+            svc, command_sink=WorldCommandSink(), flow_analyzer=FlowAnalysis()
+        )
+        runtime = SimulationRuntime(svc, pipeline)
+        app.state.services = svc
+        app.state.pipeline = pipeline
+        app.state.runtime = runtime
+        return runtime
+
+    @asynccontextmanager
+    async def serverless_lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Everything was wired at import (hosts may skip lifespan events); nothing runs in the
+        # background: the simulation advances on live-event polls (routes_events).
+        yield
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = None
@@ -90,13 +107,7 @@ def create_app(
                 session_factory=build_session_factory(engine),
             )
         svc.bus.bind_loop(asyncio.get_running_loop())
-        pipeline = IngestionPipeline(
-            svc, command_sink=WorldCommandSink(), flow_analyzer=FlowAnalysis()
-        )
-        runtime = SimulationRuntime(svc, pipeline)
-        app.state.services = svc
-        app.state.pipeline = pipeline
-        app.state.runtime = runtime
+        runtime = wire(app, svc)
         task = asyncio.create_task(runtime.run_forever()) if start_background else None
         try:
             yield
@@ -112,7 +123,7 @@ def create_app(
         title="MedDefender Twin API",
         version="0.1.0",
         summary="Healthcare IoT security simulation with a live digital twin. All data is synthetic.",
-        lifespan=lifespan,
+        lifespan=serverless_lifespan if settings.serverless else lifespan,
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
@@ -162,6 +173,16 @@ def create_app(
         )
         return _error(500, "INTERNAL_ERROR", "An unexpected error occurred.", request)
 
+    if settings.serverless:
+        svc = services or AppServices(
+            settings=settings,
+            clock=clock or SystemClock(),
+            session_factory=build_session_factory(
+                build_engine(settings.database_url, serverless=True)
+            ),
+        )
+        wire(app, svc)
+
     for module in (
         routes_auth,
         routes_twin,
@@ -169,6 +190,7 @@ def create_app(
         routes_security,
         routes_incidents,
         routes_simulation,
+        routes_events,
     ):
         app.include_router(module.router)
     app.include_router(ws.router)
