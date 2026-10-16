@@ -17,7 +17,7 @@
       36
     ]
   },
-  "wall_height": 1.4,
+  "wall_height": 2.4,
   "wall_thickness": 0.18,
   "zones": [
     {
@@ -341,6 +341,17 @@
         36
       ],
       "to": [
+        25.2,
+        36
+      ],
+      "type": "solid"
+    },
+    {
+      "from": [
+        28.8,
+        36
+      ],
+      "to": [
         56,
         36
       ],
@@ -361,6 +372,17 @@
       "from": [
         56,
         0
+      ],
+      "to": [
+        56,
+        15.2
+      ],
+      "type": "solid"
+    },
+    {
+      "from": [
+        56,
+        18.8
       ],
       "to": [
         56,
@@ -1025,10 +1047,106 @@
       "rotation": 0
     },
     {
+      "template": "bedside_cabinet",
+      "position": [
+        5.55,
+        33.35
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "overbed_table",
+      "position": [
+        4.0,
+        30.95
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "visitor_chair",
+      "position": [
+        6.6,
+        30.4
+      ],
+      "rotation": 200
+    },
+    {
+      "template": "wall_tv",
+      "position": [
+        6.7,
+        35.88
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        0.55,
+        29.4
+      ],
+      "rotation": 270
+    },
+    {
+      "template": "plant",
+      "position": [
+        7.3,
+        35.3
+      ],
+      "rotation": 0
+    },
+    {
       "template": "bed",
       "position": [
         12.0,
         32.6
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "bedside_cabinet",
+      "position": [
+        13.55,
+        33.35
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "overbed_table",
+      "position": [
+        12.0,
+        30.95
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "visitor_chair",
+      "position": [
+        14.6,
+        30.4
+      ],
+      "rotation": 200
+    },
+    {
+      "template": "wall_tv",
+      "position": [
+        14.7,
+        35.88
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        8.55,
+        29.4
+      ],
+      "rotation": 270
+    },
+    {
+      "template": "plant",
+      "position": [
+        15.3,
+        35.3
       ],
       "rotation": 0
     },
@@ -1041,6 +1159,54 @@
       "rotation": 0
     },
     {
+      "template": "bedside_cabinet",
+      "position": [
+        21.55,
+        33.35
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "overbed_table",
+      "position": [
+        20.0,
+        30.95
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "visitor_chair",
+      "position": [
+        22.6,
+        30.4
+      ],
+      "rotation": 200
+    },
+    {
+      "template": "wall_tv",
+      "position": [
+        22.7,
+        35.88
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        16.55,
+        29.4
+      ],
+      "rotation": 270
+    },
+    {
+      "template": "plant",
+      "position": [
+        23.3,
+        35.3
+      ],
+      "rotation": 0
+    },
+    {
       "template": "nurse_desk",
       "position": [
         9.5,
@@ -1049,10 +1215,302 @@
       "rotation": 0
     },
     {
+      "template": "nurse_desk_return",
+      "position": [
+        12.25,
+        23.1
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        8.6,
+        25.6
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        10.4,
+        25.6
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        13.2,
+        22.6
+      ],
+      "rotation": 270
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        1.0,
+        20.5
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        2.0,
+        20.5
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "crash_cart",
+      "position": [
+        17.6,
+        21.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        0.8,
+        27.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        18.3,
+        27.3
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "ups_cabinet",
+      "position": [
+        20.4,
+        21.0
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "handrail",
+      "position": [
+        24.25,
+        28.0
+      ],
+      "rotation": 90,
+      "length": 15.0
+    },
+    {
+      "template": "handrail",
+      "position": [
+        29.75,
+        28.0
+      ],
+      "rotation": 90,
+      "length": 15.0
+    },
+    {
+      "template": "plant",
+      "position": [
+        25.0,
+        35.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        29.0,
+        35.2
+      ],
+      "rotation": 0
+    },
+    {
       "template": "ct_table",
       "position": [
         37.0,
         28.4
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        31.4,
+        35.45
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        32.4,
+        35.45
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "injector",
+      "position": [
+        35.0,
+        32.6
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "desk_dual",
+      "position": [
+        53.6,
+        32.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        53.6,
+        31.2
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        50.0,
+        31.2
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "lightbox",
+      "position": [
+        55.88,
+        30.0
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "plant",
+      "position": [
+        55.2,
+        35.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "tall_cabinet",
+      "position": [
+        34.8,
+        20.5
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "seating",
+      "position": [
+        42.0,
+        22.0
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "seating",
+      "position": [
+        48.0,
+        22.0
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "reception_desk",
+      "position": [
+        52.6,
+        23.0
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "sofa",
+      "position": [
+        39.0,
+        24.9
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "coffee_table",
+      "position": [
+        39.0,
+        23.7
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "wall_tv",
+      "position": [
+        45.0,
+        25.88
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        36.8,
+        20.8
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        55.2,
+        25.2
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "handrail",
+      "position": [
+        28.0,
+        14.25
+      ],
+      "rotation": 0,
+      "length": 24.0
+    },
+    {
+      "template": "handrail",
+      "position": [
+        28.0,
+        19.75
+      ],
+      "rotation": 0,
+      "length": 18.0
+    },
+    {
+      "template": "bench",
+      "position": [
+        52.0,
+        14.7
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        55.2,
+        14.8
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        55.2,
+        19.2
       ],
       "rotation": 0
     },
@@ -1089,6 +1547,70 @@
       "rotation": 180
     },
     {
+      "template": "crac_unit",
+      "position": [
+        18.6,
+        9.0
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "ups_cabinet",
+      "position": [
+        18.4,
+        3.0
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "fire_cylinders",
+      "position": [
+        0.7,
+        12.8
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "video_wall",
+      "position": [
+        26.0,
+        0.12
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "desk_dual",
+      "position": [
+        26.0,
+        10.0
+      ],
+      "rotation": 180
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        26.0,
+        11.0
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "office_chair",
+      "position": [
+        26.0,
+        5.4
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "plant",
+      "position": [
+        31.3,
+        13.3
+      ],
+      "rotation": 0
+    },
+    {
       "template": "ahu",
       "position": [
         49.5,
@@ -1105,21 +1627,87 @@
       "rotation": 0
     },
     {
-      "template": "seating",
+      "template": "chiller",
       "position": [
-        42.0,
-        22.0
+        39.5,
+        3.0
       ],
       "rotation": 0
     },
     {
-      "template": "seating",
+      "template": "chiller",
       "position": [
-        48.0,
-        22.0
+        43.5,
+        3.0
       ],
       "rotation": 0
+    },
+    {
+      "template": "pump_unit",
+      "position": [
+        39.5,
+        5.6
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "pump_unit",
+      "position": [
+        43.5,
+        5.6
+      ],
+      "rotation": 0
+    },
+    {
+      "template": "pipe_run",
+      "position": [
+        44.0,
+        0.45
+      ],
+      "rotation": 0,
+      "length": 22.0
+    },
+    {
+      "template": "electrical_panel",
+      "position": [
+        32.25,
+        4.0
+      ],
+      "rotation": 90
+    },
+    {
+      "template": "electrical_panel",
+      "position": [
+        32.25,
+        6.0
+      ],
+      "rotation": 90
     }
   ],
-  "orientation_convention": "Template fronts face -Y (south) at rotation 0; rotation is degrees counter-clockwise about +Z."
+  "orientation_convention": "Template fronts face -Y (south) at rotation 0; rotation is degrees counter-clockwise about +Z.",
+  "exterior_wall_height": 2.7,
+  "entrances": [
+    {
+      "id": "EMERGENCY",
+      "label": "EMERGENCY",
+      "center": [
+        27.0,
+        36.0
+      ],
+      "width": 3.6,
+      "facing": "north",
+      "color": "#e5484d"
+    },
+    {
+      "id": "MAIN",
+      "label": "SIMULATED HOSPITAL",
+      "center": [
+        56.0,
+        17.0
+      ],
+      "width": 3.6,
+      "facing": "east",
+      "color": "#e2e8f0"
+    }
+  ]
 }

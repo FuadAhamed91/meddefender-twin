@@ -11,6 +11,7 @@ import type {
 } from "../api/types";
 
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
+export type ViewMode = "holographic" | "realistic";
 
 export interface Overlays {
   network: boolean;
@@ -60,6 +61,7 @@ interface TwinStore {
   connection: ConnectionState;
   focus: FocusRequest;
   mappingIssues: string[];
+  viewMode: ViewMode;
 
   loadSnapshot: (snapshot: TwinSnapshot) => void;
   applyEvent: (event: LiveEvent) => void;
@@ -73,10 +75,11 @@ interface TwinStore {
   requestFocus: (kind: FocusRequest["kind"], ids?: string[]) => void;
   setMappingIssues: (issues: string[]) => void;
   pruneTransient: (now: number) => void;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 const FEED_LIMIT = 120;
-const EDGE_TTL_MS = 9000;
+export const EDGE_TTL_MS = 9000;
 const FLASH_TTL_MS = 12000;
 
 export const useTwinStore = create<TwinStore>((set, get) => ({
@@ -87,7 +90,7 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   twin: {},
   selectedId: null,
   hoveredId: null,
-  overlays: { network: true, dependencies: false, topology: false, labels: true, zones: true },
+  overlays: { network: true, dependencies: false, topology: false, labels: false, zones: true },
   attackPath: null,
   planPreview: null,
   highlight: null,
@@ -98,6 +101,13 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   connection: "connecting",
   focus: { kind: "overview", ids: [], nonce: 0 },
   mappingIssues: [],
+  viewMode: (() => {
+    try {
+      return (localStorage.getItem("md.viewMode") as ViewMode | null) ?? "holographic";
+    } catch {
+      return "holographic";
+    }
+  })(),
 
   loadSnapshot: (snapshot) =>
     set({
@@ -193,6 +203,14 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   setConnection: (connection) => set({ connection }),
   requestFocus: (kind, ids = []) => set((s) => ({ focus: { kind, ids, nonce: s.focus.nonce + 1 } })),
   setMappingIssues: (mappingIssues) => set({ mappingIssues }),
+  setViewMode: (viewMode) => {
+    try {
+      localStorage.setItem("md.viewMode", viewMode);
+    } catch {
+      /* storage may be unavailable; the choice still applies for this session */
+    }
+    set({ viewMode });
+  },
   pruneTransient: (now) =>
     set((s) => {
       const edges = s.transientEdges.filter((e) => now - e.at < EDGE_TTL_MS);

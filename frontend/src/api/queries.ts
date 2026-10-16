@@ -115,7 +115,7 @@ export const useAudit = (filters: Record<string, unknown>) =>
   useQuery({ queryKey: qk.audit(filters), queryFn: () => api.get<AuditEvent[]>(`/api/v1/audit${qs({ limit: 100, ...filters })}`) });
 
 export const useNetworkGraph = () =>
-  useQuery({ queryKey: qk.networkGraph, queryFn: () => api.get<NetworkGraph>("/api/v1/graph/network") });
+  useQuery({ queryKey: qk.networkGraph, queryFn: () => api.get<NetworkGraph>("/api/v1/graph/network"), refetchInterval: 30_000 });
 
 export const useDependencyGraph = () =>
   useQuery({ queryKey: qk.dependencyGraph, queryFn: () => api.get<DependencyGraph>("/api/v1/graph/dependencies"), staleTime: 60_000 });

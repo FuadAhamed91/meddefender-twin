@@ -1,13 +1,13 @@
-import { Html, Line, QuadraticBezierLine } from "@react-three/drei";
+import { Edges, Html, Line, QuadraticBezierLine, type QuadraticBezierLineRef } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { Boxes, X } from "lucide-react";
-import { useMemo, useRef } from "react";
-import { type Mesh, Quaternion, Vector3 } from "three";
-import { useDependencyGraph, useNetworkGraph, useZones } from "../api/queries";
+import { useEffect, useMemo, useRef } from "react";
+import { AdditiveBlending, Color, type Mesh, type QuadraticBezierCurve3, Quaternion, ShaderMaterial, Vector3 } from "three";
+import { useDependencyGraph, useNetworkGraph, useRooms, useZones } from "../api/queries";
 import type { AssetSummary, PolicyOutcome } from "../api/types";
-import { boundsCenter, planToWorld } from "../lib/coords";
+import { boundsCenter, boundsSize, planToWorld } from "../lib/coords";
 import { OUTCOME, PATH_CLASS } from "../lib/status";
-import { useTwinStore } from "../state/twin";
+import { EDGE_TTL_MS, type TransientEdge, useTwinStore } from "../state/twin";
 import { anchorOf, arc } from "./curves";
 
 const UP = new Vector3(0, 1, 0);
@@ -45,6 +45,7 @@ function FlowArc({
   opacity,
   lift = 0.9,
   arrow = true,
+  dotted = false,
 }: {
   source: AssetSummary | undefined;
   destination: AssetSummary | undefined;
@@ -54,6 +55,7 @@ function FlowArc({
   opacity: number;
   lift?: number;
   arrow?: boolean;
+  dotted?: boolean;
 }) {
   const geometry = useMemo(() => {
     const a = anchorOf(source);
@@ -72,8 +74,8 @@ function FlowArc({
         color={color}
         lineWidth={width}
         dashed={dashed}
-        dashSize={0.35}
-        gapSize={0.25}
+        dashSize={dotted ? 0.1 : 0.35}
+        gapSize={dotted ? 0.22 : 0.25}
         transparent
         opacity={opacity}
         depthWrite={false}
@@ -140,6 +142,7 @@ export function NetworkOverlay() {
   const overlays = useTwinStore((s) => s.overlays);
   const selectedId = useTwinStore((s) => s.selectedId);
   const attackActive = useTwinStore((s) => s.attackPath !== null);
+  const holo = useTwinStore((s) => s.viewMode === "holographic");
   if (!data || (!overlays.network && !overlays.topology)) return null;
   return (
     <group>
@@ -147,6 +150,7 @@ export function NetworkOverlay() {
         const l2 = edge.relationship_type === "L2_UPLINK";
         if (l2 ? !overlays.topology : !overlays.network) return null;
         const style = OUTCOME_LINE[edge.policy_status];
+        const dotted = holo && edge.policy_status === "PERMITTED";
         const related = selectedId !== null && (edge.source === selectedId || edge.destination === selectedId);
         const dim = (selectedId !== null && !related) || attackActive;
         const observedPath = edge.origin === "OBSERVED";
@@ -157,7 +161,8 @@ export function NetworkOverlay() {
             source={assets[edge.source]}
             destination={assets[edge.destination]}
             color={color}
-            dashed={style.dashed || observedPath}
+            dashed={style.dashed || observedPath || dotted}
+            dotted={dotted}
             width={related ? style.width + 1 : style.width}
             opacity={dim ? 0.1 : related ? 0.95 : l2 ? 0.35 : 0.55}
             lift={l2 ? 0.2 : 0.9}
@@ -363,46 +368,257 @@ export function AttackPathOverlay() {
 
 // ---- live flow pulses -------------------------------------------------------------------------
 
-function Pulse({ start, mid, end, color, bornAt, blocked }: { start: Vector3; mid: Vector3; end: Vector3; color: string; bornAt: number; blocked: boolean }) {
-  const ref = useRef<Mesh>(null);
+// A comet: bright head plus a short fading tail, so direction reads at a glance.
+const TRAIL = [0, 0.035, 0.07, 0.105];
+const BLOCK_POINT = 0.55;
+
+function Comet({ curve, color, bornAt, blocked }: { curve: QuadraticBezierCurve3; color: string; bornAt: number; blocked: boolean }) {
+  const refs = useRef<(Mesh | null)[]>([]);
   const reduced = useMemo(reducedMotion, []);
+  // HDR color (above 1.0) so the bloom pass gives the head a soft glow.
+  const glow = useMemo(() => new Color(color).multiplyScalar(2.4), [color]);
   useFrame(() => {
-    if (!ref.current) return;
     const age = (Date.now() - bornAt) / 1000;
-    let t = reduced ? (blocked ? 0.55 : 1) : (age % 1.6) / 1.6;
-    if (blocked) t = Math.min(t, 0.55);
-    const p = new Vector3()
-      .addScaledVector(start, (1 - t) * (1 - t))
-      .addScaledVector(mid, 2 * (1 - t) * t)
-      .addScaledVector(end, t * t);
-    ref.current.position.copy(p);
+    const stop = blocked ? BLOCK_POINT : 1;
+    // A blocked flow travels to the enforcement point and halts there; permitted flows loop.
+    const head = reduced ? stop : Math.min((age % 1.6) / 1.6, stop);
+    TRAIL.forEach((lag, i) => {
+      const mesh = refs.current[i];
+      if (!mesh) return;
+      const t = head - lag;
+      mesh.visible = t >= 0 && (i === 0 || !reduced);
+      if (mesh.visible) curve.getPoint(t, mesh.position);
+    });
   });
   return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.16, 12, 12]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
+    <>
+      {TRAIL.map((lag, i) => (
+        <mesh
+          key={lag}
+          ref={(mesh) => {
+            refs.current[i] = mesh;
+          }}
+          scale={1 - i * 0.2}
+          raycast={() => undefined}
+        >
+          <sphereGeometry args={[0.15, 14, 14]} />
+          <meshBasicMaterial color={glow} toneMapped={false} transparent opacity={1 - i * 0.27} depthWrite={false} />
+        </mesh>
+      ))}
+    </>
   );
 }
 
+function TransientFlow({ edge, source, destination }: { edge: TransientEdge; source: AssetSummary; destination: AssetSummary }) {
+  const line = useRef<QuadraticBezierLineRef>(null);
+  const curve = useMemo(() => {
+    const a = anchorOf(source);
+    const b = anchorOf(destination);
+    return a && b ? arc(a, b, 1.2, source.id, destination.id) : null;
+  }, [source, destination]);
+  // Fade the arc out over its lifetime instead of letting it vanish abruptly.
+  useFrame(() => {
+    const material = line.current?.material;
+    if (material) material.opacity = 0.85 * Math.max(0, 1 - (Date.now() - edge.at) / EDGE_TTL_MS);
+  });
+  if (!curve) return null;
+  const color = OUTCOME_LINE[edge.outcome]?.color ?? "#22c3d6";
+  return (
+    <group>
+      <QuadraticBezierLine
+        ref={line}
+        start={curve.v0}
+        end={curve.v2}
+        mid={curve.v1}
+        color={color}
+        lineWidth={2.2}
+        dashed={edge.outcome !== "PERMITTED"}
+        dashSize={0.3}
+        gapSize={0.2}
+        transparent
+        opacity={0.85}
+        depthWrite={false}
+      />
+      <Comet curve={curve} color={color} bornAt={edge.at} blocked={edge.outcome === "BLOCKED"} />
+    </group>
+  );
+}
+
+/** Flows observed in the last few seconds (from the live event stream), drawn as moving comets. */
 export function TransientFlows() {
   const edges = useTwinStore((s) => s.transientEdges);
   const assets = useTwinStore((s) => s.assets);
   return (
     <group>
       {edges.map((edge) => {
-        const src = assets[edge.source];
-        const dst = assets[edge.destination];
-        const a = anchorOf(src);
-        const b = anchorOf(dst);
-        if (!a || !b || !src || !dst) return null;
-        const curve = arc(a, b, 1.2, src.id, dst.id);
-        const color = OUTCOME_LINE[edge.outcome]?.color ?? "#22c3d6";
+        const source = assets[edge.source];
+        const destination = assets[edge.destination];
+        return source && destination ? <TransientFlow key={edge.key} edge={edge} source={source} destination={destination} /> : null;
+      })}
+    </group>
+  );
+}
+
+
+// ---- device beacons (holographic view) ------------------------------------------------------
+
+/** Subtle static rings under every messaging device; motion is reserved for alerts. */
+export function DeviceBeacons() {
+  const holo = useTwinStore((s) => s.viewMode === "holographic");
+  const assets = useTwinStore((s) => s.assets);
+  if (!holo) return null;
+  const devices = Object.values(assets).filter((a) => a.trust_state && a.position && !a.is_logical && a.is_active);
+  return (
+    <group>
+      {devices.map((a) => {
+        const p = planToWorld(a.position!.x, a.position!.y, 0.025);
         return (
-          <group key={edge.key}>
-            <QuadraticBezierLine start={curve.v0} end={curve.v2} mid={curve.v1} color={color} lineWidth={2.2} dashed={edge.outcome !== "PERMITTED"} dashSize={0.3} gapSize={0.2} transparent opacity={0.85} depthWrite={false} />
-            <Pulse start={curve.v0} mid={curve.v1} end={curve.v2} color={color} bornAt={edge.at} blocked={edge.outcome === "BLOCKED"} />
+          <group key={a.id} position={p} rotation={[-Math.PI / 2, 0, 0]}>
+            {/* Additive blending: the rings read as light on the floor, not as painted shapes. */}
+            <mesh raycast={() => undefined}>
+              <ringGeometry args={[0.5, 0.54, 48]} />
+              <meshBasicMaterial color="#38bdf8" transparent opacity={0.55} depthWrite={false} blending={AdditiveBlending} />
+            </mesh>
+            <mesh raycast={() => undefined}>
+              <ringGeometry args={[0.82, 0.85, 48]} />
+              <meshBasicMaterial color="#38bdf8" transparent opacity={0.25} depthWrite={false} blending={AdditiveBlending} />
+            </mesh>
+            <mesh raycast={() => undefined}>
+              <circleGeometry args={[0.5, 32]} />
+              <meshBasicMaterial color="#0ea5e9" transparent opacity={0.12} depthWrite={false} blending={AdditiveBlending} />
+            </mesh>
           </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ---- status beams (holographic view) --------------------------------------------------------
+
+const BEAM_VERT = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vPosW;
+  void main() {
+    vUv = uv;
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vPosW = world.xyz;
+    vNormalW = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }`;
+
+// Soft light pillar: brightest along the axis facing the viewer, fading toward the top.
+// pow() bases are clamped: a negative base returns NaN on D3D/ANGLE, and the bloom blur
+// would spread a single NaN pixel across the whole frame.
+const BEAM_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vPosW;
+  void main() {
+    float facing = clamp(abs(dot(normalize(vNormalW), normalize(cameraPosition - vPosW))), 0.0, 1.0);
+    float core = pow(facing, 2.5);
+    float fade = pow(clamp(1.0 - vUv.y, 0.0, 1.0), 1.1);
+    gl_FragColor = vec4(uColor * (0.8 + 1.2 * core), uOpacity * (0.25 + 0.75 * core) * fade);
+  }`;
+
+function Beam({ at, color, opacity }: { at: Vector3; color: string; opacity: number }) {
+  const material = useMemo(
+    () =>
+      new ShaderMaterial({
+        uniforms: { uColor: { value: new Color(color) }, uOpacity: { value: opacity } },
+        vertexShader: BEAM_VERT,
+        fragmentShader: BEAM_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: AdditiveBlending,
+      }),
+    [color, opacity],
+  );
+  useEffect(() => () => material.dispose(), [material]);
+  return (
+    <mesh position={[at.x, 2.25, at.z]} material={material} raycast={() => undefined} renderOrder={3}>
+      <cylinderGeometry args={[0.32, 0.32, 4.5, 24, 1, true]} />
+    </mesh>
+  );
+}
+
+/**
+ * Holographic view: a light pillar over the selected device and over devices whose backend
+ * state needs attention, so they can be spotted from across the floor. Static on purpose;
+ * motion stays reserved for live alerts.
+ */
+export function StatusBeams() {
+  const holo = useTwinStore((s) => s.viewMode === "holographic");
+  const assets = useTwinStore((s) => s.assets);
+  const selectedId = useTwinStore((s) => s.selectedId);
+  if (!holo) return null;
+  const beams: { id: string; at: Vector3; color: string; opacity: number }[] = [];
+  for (const asset of Object.values(assets)) {
+    if (!asset.position || asset.is_logical || !asset.is_active) continue;
+    const at = planToWorld(asset.position.x, asset.position.y, 0);
+    if (asset.id === selectedId) {
+      beams.push({ id: asset.id, at, color: "#22c3d6", opacity: 0.8 });
+      continue;
+    }
+    const contained = asset.containment_state === "ISOLATED" || asset.trust_state === "QUARANTINED";
+    const state = asset.trust_state ?? "";
+    if (contained) beams.push({ id: asset.id, at, color: "#f04452", opacity: 0.75 });
+    else if (BEAM_STATES[state]) beams.push({ id: asset.id, at, color: BEAM_STATES[state], opacity: 0.65 });
+  }
+  return (
+    <group>
+      {beams.map((b) => (
+        <Beam key={b.id} at={b.at} color={b.color} opacity={b.opacity} />
+      ))}
+    </group>
+  );
+}
+
+const BEAM_STATES: Record<string, string> = {
+  SUSPICIOUS: "#f5b945",
+  REVOKED: "#d0647a",
+  UNREGISTERED: "#c084fc",
+};
+
+// ---- room highlights -------------------------------------------------------------------------
+
+const ROOM_STATE: { test: (a: AssetSummary) => boolean; color: string; label: string }[] = [
+  { test: (a) => a.containment_state === "ISOLATED" || a.trust_state === "QUARANTINED", color: "#f04452", label: "Contained" },
+  { test: (a) => a.trust_state === "SUSPICIOUS", color: "#f5b945", label: "Suspicious activity" },
+  { test: (a) => a.trust_state === "UNREGISTERED", color: "#c084fc", label: "Unregistered device" },
+  { test: (a) => a.containment_state === "RESTRICTED", color: "#f5b945", label: "Restricted" },
+];
+
+/** Rooms holding assets in an abnormal backend state light up as translucent volumes. */
+export function RoomHighlights() {
+  const { data: rooms = [] } = useRooms();
+  const assets = useTwinStore((s) => s.assets);
+  const holo = useTwinStore((s) => s.viewMode === "holographic");
+  const flagged = useMemo(() => {
+    const out: { id: string; color: string; label: string }[] = [];
+    for (const room of rooms) {
+      const inside = Object.values(assets).filter((a) => a.room_id === room.id && a.is_active && !a.is_logical);
+      const state = ROOM_STATE.find((rule) => inside.some(rule.test));
+      if (state) out.push({ id: room.id, color: state.color, label: state.label });
+    }
+    return out;
+  }, [rooms, assets]);
+  return (
+    <group>
+      {flagged.map(({ id, color }) => {
+        const room = rooms.find((r) => r.id === id)!;
+        const { width, depth } = boundsSize(room.bounds);
+        const height = holo ? 2.35 : 0.06;
+        const center = boundsCenter(room.bounds, height / 2 + 0.01);
+        return (
+          <mesh key={id} position={center} raycast={() => undefined}>
+            <boxGeometry args={[width - 0.3, height, depth - 0.3]} />
+            <meshBasicMaterial color={color} transparent opacity={holo ? 0.1 : 0.22} depthWrite={false} />
+            <Edges color={color} />
+          </mesh>
         );
       })}
     </group>

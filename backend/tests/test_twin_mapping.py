@@ -33,7 +33,9 @@ def read_glb_json(path: Path) -> dict:
 def test_every_backend_asset_maps_to_exactly_one_glb_node(services):
     gltf = read_glb_json(GLB)
     nodes = {n.get("name"): n for n in gltf["nodes"]}
-    tagged = {n["extras"]["asset_id"]: n for n in gltf["nodes"] if "asset_id" in n.get("extras", {})}
+    tagged = {
+        n["extras"]["asset_id"]: n for n in gltf["nodes"] if "asset_id" in n.get("extras", {})
+    }
     with services.session_factory() as session:
         physical = session.scalars(
             select(Asset).where(Asset.is_logical.is_(False), Asset.twin_node.is_not(None))
@@ -43,7 +45,9 @@ def test_every_backend_asset_maps_to_exactly_one_glb_node(services):
         node = nodes.get(asset.twin_node)
         assert node is not None, f"{asset.id}: node {asset.twin_node} missing from GLB"
         assert node["extras"]["asset_id"] == asset.id
-    assert set(tagged) == {a.id for a in physical}, "GLB contains asset nodes unknown to the backend"
+    assert set(tagged) == {a.id for a in physical}, (
+        "GLB contains asset nodes unknown to the backend"
+    )
 
 
 @pytest.mark.skipif(not GLB.exists(), reason="hospital.glb has not been built")
@@ -53,5 +57,7 @@ def test_glb_is_lean_and_reuses_template_geometry():
     meshes_used = {n["mesh"] for n in asset_nodes}
     assert len(meshes_used) < len(asset_nodes), "templates should be shared between instances"
     assert "cameras" not in gltf and "KHR_lights_punctual" not in gltf.get("extensionsUsed", [])
-    assert len(gltf["materials"]) <= 24
+    # The v2 scene has 44 shared materials (architecture, equipment, signage); the budget
+    # guards against per-object material duplication creeping in.
+    assert len(gltf["materials"]) <= 60
     assert GLB.stat().st_size < 2_000_000

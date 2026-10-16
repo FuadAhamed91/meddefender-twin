@@ -21,6 +21,7 @@ import { AssetInspector } from "../features/inspector/AssetInspector";
 import { time } from "../lib/format";
 import { INCIDENT_STATUS, OUTCOME, PATH_CLASS, SEVERITY, TRUST, trustStyle } from "../lib/status";
 import { type Overlays, useTwinStore } from "../state/twin";
+import { Minimap } from "../twin/Minimap";
 import { TwinCanvas } from "../twin/TwinCanvas";
 
 const OVERLAY_ITEMS: { key: keyof Overlays; label: string; icon: typeof Layers; hint: string }[] = [
@@ -48,6 +49,35 @@ function ZoneNav() {
         >
           <span aria-hidden className="size-2 rounded-sm" style={{ backgroundColor: zone.color }} />
           {zone.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ViewStyle() {
+  const mode = useTwinStore((s) => s.viewMode);
+  const setMode = useTwinStore((s) => s.setViewMode);
+  const options = [
+    { id: "holographic" as const, label: "Holographic", hint: "Security view: translucent architecture, glowing edges" },
+    { id: "realistic" as const, label: "Realistic", hint: "Architectural view: lit materials and furniture" },
+  ];
+  return (
+    <div role="radiogroup" aria-label="View style" className="mb-2 grid grid-cols-2 gap-0.5 rounded-md border border-line-strong bg-canvas p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={mode === o.id}
+          title={o.hint}
+          onClick={() => setMode(o.id)}
+          className={cx(
+            "cursor-pointer rounded px-2 py-1 text-[12px] transition-colors",
+            mode === o.id ? "bg-accent-soft font-medium text-accent-strong" : "text-ink-muted hover:text-ink",
+          )}
+        >
+          {o.label}
         </button>
       ))}
     </div>
@@ -368,6 +398,7 @@ export default function TwinPage() {
           <ZoneNav />
         </Panel>
         <Panel title="Overlays" icon={Layers}>
+          <ViewStyle />
           <fieldset>
             <legend className="sr-only">Overlay visibility</legend>
             <ul className="space-y-1">
@@ -413,6 +444,9 @@ export default function TwinPage() {
             <span className="text-ok tabular">{counters.accepted} accepted</span> · <span className="text-warn tabular">{counters.held} held</span> ·{" "}
             <span className="text-crit tabular">{counters.rejected} rejected</span>
           </div>
+        </div>
+        <div className="pointer-events-none absolute right-2 bottom-2 hidden md:block">
+          <Minimap />
         </div>
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-col gap-1">
           {fallback ? (
