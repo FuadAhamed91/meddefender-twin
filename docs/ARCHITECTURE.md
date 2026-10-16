@@ -294,10 +294,11 @@ The console is a React single-page app; the twin is a React Three Fiber scene in
   them, compares them with the backend inventory and reports the result in the scene
   ("Twin mapping verified · 21 assets", or the specific mismatches). Picking walks up to
   the nearest node with an asset ID; asset chips are DOM buttons so they are keyboard and
-  screen-reader accessible.
-* **What is drawn, and from where.** Device tints, room volumes and light pillars come only
-  from backend trust and containment state. Network arcs are coloured by the current
-  policy decision. Dependency arcs come from the separate dependency graph. Short-lived
+  screen-reader accessible. Only devices that need attention get a chip; the others are small
+  markers, and every device stays reachable from the asset list.
+* **What is drawn, and from where.** Device tints and light pillars come only from backend
+  trust and containment state; a device gets a chip for that state, a recent alert or the
+  user's selection. Network arcs are coloured by the current policy decision. Short-lived
   comets come from flow and policy events on the stream, and attack paths and containment
   previews come from the corresponding API results. Motion is reserved for live events;
   potential attack paths are drawn statically so they are not mistaken for traffic.

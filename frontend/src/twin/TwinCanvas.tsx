@@ -9,7 +9,7 @@ import { AssetMarkers } from "./AssetMarkers";
 import { DevCapture } from "./DevCapture";
 import { Effects } from "./Effects";
 import { HospitalModel } from "./HospitalModel";
-import { AttackPathOverlay, DependencyOverlay, DeviceBeacons, NetworkOverlay, RoomHighlights, StatusBeams, TransientFlows, ZoneOverlay } from "./Overlays";
+import { AttackPathOverlay, NetworkOverlay, StatusBeams, TransientFlows, ZoneOverlay } from "./Overlays";
 import { ProceduralHospital } from "./ProceduralHospital";
 import { RoomLabels } from "./RoomLabels";
 
@@ -374,11 +374,8 @@ export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void })
       </Suspense>
       <ZoneOverlay />
       <RoomLabels />
-      <RoomHighlights />
-      <DeviceBeacons />
       <StatusBeams />
       <NetworkOverlay />
-      <DependencyOverlay />
       <AttackPathOverlay />
       <TransientFlows />
       <AssetMarkers />

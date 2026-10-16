@@ -1,35 +1,16 @@
-import {
-  Activity,
-  Boxes,
-  Cable,
-  Eye,
-  Layers,
-  Map as MapIcon,
-  Search,
-  ShieldAlert,
-  Tags,
-  TriangleAlert,
-  Waypoints,
-  X,
-} from "lucide-react";
+import { Eye, Layers, Map as MapIcon, Search, ShieldAlert, TriangleAlert, Waypoints, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useIncidents, useZones } from "../api/queries";
-import type { LiveEvent, Severity } from "../api/types";
-import { cx, EmptyState, Panel, StatusBadge } from "../components/ui/primitives";
+import { cx, Panel, StatusBadge } from "../components/ui/primitives";
 import { AssetInspector } from "../features/inspector/AssetInspector";
-import { time } from "../lib/format";
 import { INCIDENT_STATUS, OUTCOME, PATH_CLASS, SEVERITY, TRUST, trustStyle } from "../lib/status";
 import { type Overlays, useTwinStore } from "../state/twin";
-import { Minimap } from "../twin/Minimap";
 import { TwinCanvas } from "../twin/TwinCanvas";
 
 const OVERLAY_ITEMS: { key: keyof Overlays; label: string; icon: typeof Layers; hint: string }[] = [
   { key: "network", label: "Network flows", icon: Waypoints, hint: "Modeled paths, colored by current policy decision" },
-  { key: "dependencies", label: "Dependencies", icon: Boxes, hint: "What relies on what (separate from connectivity)" },
-  { key: "topology", label: "L2 topology", icon: Cable, hint: "Physical attachment only; not a permission" },
   { key: "zones", label: "Zones", icon: MapIcon, hint: "Security zones and network segments" },
-  { key: "labels", label: "Asset labels", icon: Tags, hint: "Show asset IDs on markers" },
 ];
 
 function ZoneNav() {
@@ -80,39 +61,6 @@ function ViewStyle() {
           {o.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function EffectsQuality() {
-  const quality = useTwinStore((s) => s.renderQuality);
-  const note = useTwinStore((s) => s.renderNote);
-  const setQuality = useTwinStore((s) => s.setRenderQuality);
-  const options = [
-    { id: "full" as const, label: "Full effects", hint: "Bloom, outlines, ambient occlusion and soft shadows" },
-    { id: "reduced" as const, label: "Reduced", hint: "No post-processing or shadow maps: for software rendering or slow GPUs" },
-  ];
-  return (
-    <div className="mb-2">
-      <div role="radiogroup" aria-label="Rendering effects" className="grid grid-cols-2 gap-0.5 rounded-md border border-line-strong bg-canvas p-0.5">
-        {options.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={quality === o.id}
-            title={o.hint}
-            onClick={() => setQuality(o.id)}
-            className={cx(
-              "cursor-pointer rounded px-2 py-1 text-[12px] transition-colors",
-              quality === o.id ? "bg-accent-soft font-medium text-accent-strong" : "text-ink-muted hover:text-ink",
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-      {note ? <p className="mt-1 text-[11px] text-ink-muted">Reduced automatically: {note}.</p> : null}
     </div>
   );
 }
@@ -183,89 +131,6 @@ function AssetSearch() {
   );
 }
 
-const FEED_LABELS: Record<string, string> = {
-  "alert.created": "Alert",
-  "incident.created": "Incident opened",
-  "incident.updated": "Incident updated",
-  "trust.changed": "Trust changed",
-  "policy.decision": "Policy decision",
-  "network.flow_observed": "Flow observed",
-  "telemetry.processed": "Message",
-  "asset.discovered": "Endpoint discovered",
-  "containment.applied": "Containment applied",
-  "command.delivered": "Command delivered",
-  "simulation.reset": "Baseline reset",
-  "simulation.run_started": "Scenario started",
-  "simulation.run_completed": "Scenario finished",
-  "asset.updated": "Asset updated",
-  "enrollment.requested": "Enrollment requested",
-};
-
-function describe(event: LiveEvent): { text: string; severity?: Severity; asset?: string } {
-  const p = (event.payload ?? {}) as Record<string, unknown>;
-  switch (event.type) {
-    case "alert.created":
-      return { text: `${p.rule_id} ${p.title} · ${p.subject_ref}`, severity: p.severity as Severity, asset: (p.asset_id as string) ?? undefined };
-    case "trust.changed":
-      return { text: `${p.asset_id}: ${p.from} → ${p.to}`, asset: p.asset_id as string };
-    case "telemetry.processed":
-      return { text: `${p.claimed_device_id ?? "unknown"} ${String(p.message_type ?? "").toLowerCase()} ${String(p.decision).toLowerCase()} (${p.reason_code})`, asset: (p.asset_id as string) ?? undefined };
-    case "policy.decision":
-      return { text: `${p.source} → ${p.destination} (${p.service_or_action}): ${String(p.outcome).toLowerCase().replaceAll("_", " ")}` };
-    case "network.flow_observed":
-      return { text: `${p.source} → ${p.destination} (${p.service}) ${String(p.outcome).toLowerCase()}${p.new_path ? " · new path" : ""}` };
-    case "incident.created":
-    case "incident.updated":
-      return { text: `${p.reference}: ${p.title} (${String(p.status).toLowerCase()})`, severity: p.severity as Severity };
-    case "asset.discovered":
-      return { text: `${p.asset_id} (${p.ip_address}) in ${p.network_zone_id}`, asset: p.asset_id as string };
-    case "simulation.run_completed":
-      return { text: `Scenario ${p.scenario_id}: ${p.expectations_met}/${p.expectations_total} expectations met` };
-    default:
-      return { text: JSON.stringify(p).slice(0, 120) };
-  }
-}
-
-function EventFeed() {
-  const feed = useTwinStore((s) => s.feed);
-  const select = useTwinStore((s) => s.select);
-  if (!feed.length) {
-    return (
-      <EmptyState icon={Activity} title="Quiet so far">
-        Live security events appear here. Run a scenario to see detections.
-      </EmptyState>
-    );
-  }
-  return (
-    <ol className="space-y-1" aria-label="Live security events">
-      {feed.slice(0, 60).map((event, index) => {
-        const d = describe(event);
-        const sev = d.severity ? SEVERITY[d.severity] : null;
-        const Icon = sev?.icon ?? Activity;
-        return (
-          <li key={`${event.id ?? index}-${event.type}`} className="animate-fade-in">
-            <button
-              type="button"
-              disabled={!d.asset}
-              onClick={() => d.asset && select(d.asset)}
-              className="flex w-full cursor-pointer items-start gap-2 rounded px-1.5 py-1 text-left text-[12px] hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <Icon aria-hidden className="mt-0.5 size-3.5 shrink-0" style={{ color: sev?.color ?? "#9aabc2" }} />
-              <span className="min-w-0 flex-1">
-                <span className="flex justify-between gap-2 text-[11px] text-ink-muted">
-                  <span>{FEED_LABELS[event.type] ?? event.type}</span>
-                  <span className="tabular">{time(event.created_at)}</span>
-                </span>
-                <span className="block wrap-anywhere text-ink">{d.text}</span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 function Legend() {
   return (
     <div className="space-y-2 text-[11.5px] text-ink-muted">
@@ -286,19 +151,15 @@ function Legend() {
       <div>
         <p className="mb-1 font-semibold tracking-wider uppercase">Flows</p>
         <ul className="space-y-0.5">
-          {(["PERMITTED", "BLOCKED", "ALLOWED_MONITOR_ONLY", "TOPOLOGY"] as const).map((k) => (
+          {(["PERMITTED", "BLOCKED", "ALLOWED_MONITOR_ONLY"] as const).map((k) => (
             <li key={k} className="flex items-center gap-1.5">
-              <span aria-hidden className="inline-block h-0.5 w-5" style={{ background: OUTCOME[k].color, opacity: k === "TOPOLOGY" ? 0.6 : 1 }} />
+              <span aria-hidden className="inline-block h-0.5 w-5" style={{ background: OUTCOME[k].color }} />
               {OUTCOME[k].label}
             </li>
           ))}
           <li className="flex items-center gap-1.5">
             <span aria-hidden className="inline-block h-0.5 w-5 border-t-2 border-dashed border-warn" />
             Observed, not in baseline
-          </li>
-          <li className="flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-0.5 w-5 border-t-2 border-dotted border-dep" />
-            Dependency
           </li>
         </ul>
       </div>
@@ -432,7 +293,6 @@ export default function TwinPage() {
         </Panel>
         <Panel title="Overlays" icon={Layers}>
           <ViewStyle />
-          <EffectsQuality />
           <fieldset>
             <legend className="sr-only">Overlay visibility</legend>
             <ul className="space-y-1">
@@ -479,9 +339,6 @@ export default function TwinPage() {
             <span className="text-crit tabular">{counters.rejected} rejected</span>
           </div>
         </div>
-        <div className="pointer-events-none absolute right-2 bottom-2 hidden md:block">
-          <Minimap />
-        </div>
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-col gap-1">
           {fallback ? (
             <span className="pointer-events-auto flex items-center gap-1 rounded border border-warn/50 bg-canvas/95 px-2 py-1 text-[11.5px] text-warn">
@@ -508,14 +365,7 @@ export default function TwinPage() {
         {selectedId ? <AssetInspector key={selectedId} assetId={selectedId} /> : <SituationPanel />}
       </aside>
 
-      <Panel title="Live events" icon={Activity} className="order-4 max-h-80 lg:hidden" bodyClassName="overflow-y-auto p-2">
-        <EventFeed />
-      </Panel>
-      <div className="hidden" aria-hidden>
-        <EventFeed />
-      </div>
     </div>
   );
 }
 
-export { EventFeed };

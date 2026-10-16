@@ -18,9 +18,6 @@ export type RenderQuality = "full" | "reduced";
 
 export interface Overlays {
   network: boolean;
-  dependencies: boolean;
-  topology: boolean;
-  labels: boolean;
   zones: boolean;
 }
 
@@ -59,17 +56,15 @@ interface TwinStore {
   highlight: HighlightSet | null;
   flashes: Record<string, { at: number; severity: Severity }>;
   transientEdges: TransientEdge[];
-  feed: LiveEvent[];
   counters: { accepted: number; held: number; rejected: number };
   connection: ConnectionState;
   focus: FocusRequest;
   mappingIssues: string[];
   viewMode: ViewMode;
+  /** Chosen automatically: "reduced" on a CPU rasteriser (no GPU acceleration). */
   renderQuality: RenderQuality;
   /** WebGL runs on a CPU rasteriser: the twin renders on demand at a capped rate. */
   cpuRenderer: boolean;
-  /** Set when the quality was reduced automatically, explaining why. */
-  renderNote: string | null;
 
   loadSnapshot: (snapshot: TwinSnapshot) => void;
   applyEvent: (event: LiveEvent) => void;
@@ -84,7 +79,6 @@ interface TwinStore {
   setMappingIssues: (issues: string[]) => void;
   pruneTransient: (now: number) => void;
   setViewMode: (mode: ViewMode) => void;
-  setRenderQuality: (quality: RenderQuality, note?: string | null) => void;
 }
 
 function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
@@ -96,19 +90,9 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
   }
 }
 
-/** A choice the user made wins; otherwise reduce automatically on a software renderer. */
-function initialQuality(): { renderQuality: RenderQuality; renderNote: string | null; cpuRenderer: boolean } {
+function initialQuality(): { renderQuality: RenderQuality; cpuRenderer: boolean } {
   const cpuRenderer = isSoftwareRenderer();
-  let chosen: string | null = null;
-  try {
-    chosen = localStorage.getItem("md.renderQuality");
-  } catch {
-    /* storage unavailable: fall through to detection */
-  }
-  if (chosen === "full" || chosen === "reduced") return { renderQuality: chosen, renderNote: null, cpuRenderer };
-  return cpuRenderer
-    ? { renderQuality: "reduced", renderNote: "software rendering, no GPU acceleration", cpuRenderer }
-    : { renderQuality: "full", renderNote: null, cpuRenderer };
+  return { renderQuality: cpuRenderer ? "reduced" : "full", cpuRenderer };
 }
 
 function remember(key: string, value: string): void {
@@ -119,7 +103,6 @@ function remember(key: string, value: string): void {
   }
 }
 
-const FEED_LIMIT = 120;
 export const EDGE_TTL_MS = 9000;
 const FLASH_TTL_MS = 12000;
 
@@ -131,13 +114,12 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   twin: {},
   selectedId: null,
   hoveredId: null,
-  overlays: { network: true, dependencies: false, topology: false, labels: false, zones: true },
+  overlays: { network: true, zones: true },
   attackPath: null,
   planPreview: null,
   highlight: null,
   flashes: {},
   transientEdges: [],
-  feed: [],
   counters: { accepted: 0, held: 0, rejected: 0 },
   connection: "connecting",
   focus: { kind: "overview", ids: [], nonce: 0 },
@@ -223,10 +205,6 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
         break;
     }
 
-    const routine = event.type === "telemetry.processed" && payload.decision === "ACCEPTED";
-    if (!routine && event.type !== "heartbeat" && event.type !== "hello" && event.type !== "twin.updated") {
-      patch.feed = [event, ...state.feed].slice(0, FEED_LIMIT);
-    }
     set(patch);
   },
 
@@ -242,11 +220,6 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   setViewMode: (viewMode) => {
     remember("md.viewMode", viewMode);
     set({ viewMode });
-  },
-  setRenderQuality: (renderQuality, renderNote = null) => {
-    // Only a user's own choice is remembered; automatic reductions are re-detected each time.
-    if (!renderNote) remember("md.renderQuality", renderQuality);
-    set({ renderQuality, renderNote });
   },
   pruneTransient: (now) =>
     set((s) => {

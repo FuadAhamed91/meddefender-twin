@@ -97,10 +97,11 @@ against persisted state rather than scripted results:
 
 **The 3D twin** (React Three Fiber) loads a Blender-generated GLB whose nodes carry the
 backend asset IDs and verifies the mapping on every load. It offers a holographic security
-view and a realistic architectural view, live flow animation from the event stream, room
-highlights and light pillars for abnormal backend states, attack-path and containment
-previews, and a floor-plan minimap. Status is never conveyed by color alone: every state has
-an icon and a text label. Motion is reserved for live events.
+view and a realistic architectural view, live flow animation from the event stream, light
+pillars for abnormal backend states, and attack-path and containment previews. Only devices
+that need attention (selected, alerting, or in an abnormal trust or containment state) carry
+a label; the rest are small markers, so the floor stays readable. Status is never conveyed
+by color alone: every state has an icon and a text label. Motion is reserved for live events.
 
 A walkthrough of every scenario in the UI is in **[docs/DEMO.md](docs/DEMO.md)**.
 

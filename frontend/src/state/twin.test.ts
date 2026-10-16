@@ -74,13 +74,12 @@ describe("twin store", () => {
     expect(useTwinStore.getState().assets["NOT-AN-ASSET"]).toBeUndefined();
   });
 
-  it("counts telemetry decisions and keeps routine acceptances out of the feed", () => {
+  it("counts telemetry decisions", () => {
     apply({ id: 1, type: "telemetry.processed", payload: { decision: "ACCEPTED" } });
     apply({ id: 2, type: "telemetry.processed", payload: { decision: "HELD" } });
     apply({ id: 3, type: "telemetry.processed", payload: { decision: "REJECTED" } });
     const s = useTwinStore.getState();
     expect(s.counters).toEqual({ accepted: 1, held: 1, rejected: 1 });
-    expect(s.feed.map((e) => e.id)).toEqual([3, 2]);
   });
 
   it("draws network policy decisions as short-lived flows, but not device commands", () => {

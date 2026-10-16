@@ -13,15 +13,15 @@ The **Twin** page opens with a short camera glide onto the floor.
 
 - **Left panel.** *Navigate* jumps to a zone (ICU, Imaging suite, IT / Server room, Building
   management) or back to the whole floor. *Overlays* switches the view style
-  (**Holographic** security view or **Realistic** architectural view), the rendering effects
-  (*Full* or *Reduced*; reduced is chosen automatically on machines without GPU
-  acceleration) and the overlays: network flows, dependencies, L2 topology, zones and asset
-  labels. *Assets* lists every asset with its trust state; assets with open incidents come
-  first.
-- **The canvas.** The top right counts this session's message decisions
-  (accepted · held · rejected). The bottom left confirms that the twin mapping is verified,
-  meaning every backend asset was found in the Blender model by its ID. The minimap is in the
-  bottom right: click a room to fly to its zone, or a dot to select that device.
+  (**Holographic** security view or **Realistic** architectural view) and the network-flow
+  and zone overlays; *Legend* explains the colours. Machines without GPU acceleration get
+  reduced effects automatically. *Assets* lists every asset with its trust state; assets with
+  open incidents come first.
+- **The canvas.** Devices are small dots until they need attention: a device that is
+  selected, alerting, or in an abnormal trust or containment state gets a labelled chip.
+  The top right counts this session's message decisions (accepted · held · rejected). The
+  bottom left confirms that the twin mapping is verified, meaning every backend asset was
+  found in the Blender model by its ID.
 - **Right panel.** *Situation* lists open incidents and assets needing attention.
 
 Leave it running for a minute. The telemetry generator sends signed messages from the
@@ -73,7 +73,7 @@ An unknown endpoint appears on the ICU segment, tries to talk to clinical system
 telemetry under an unregistered ID, impersonates ICU-MONITOR-02 without its key and asks to
 be enrolled.
 
-- The endpoint shows up as **Unregistered** (violet, dashed ring and wireframe in the twin),
+- The endpoint shows up as **Unregistered** (violet chip, light pillar and wireframe placeholder in the twin),
   all its flows are blocked by default deny, and its messages are rejected.
 - The impersonated monitor is **not** penalised: failed authentication never counts against
   the claimed identity.
@@ -85,8 +85,8 @@ be enrolled.
 The ICU central monitoring gateway starts reaching outside its permitted communication
 policy.
 
-- Blocked flows appear as red dashed arcs. The gateway becomes **Suspicious**, gets an amber
-  light pillar, and its room lights up as an amber volume. An incident opens.
+- Blocked flows appear as red dashed arcs. The gateway becomes **Suspicious**: it gets a
+  labelled chip and an amber light pillar. An incident opens.
 - Select the gateway and choose **Attack paths from here**. Only flows the policy engine
   permits are traversed. Each hop is labelled *Demonstrated* (observed and permitted),
   *Permitted* (allowed, not observed) or *Hypothetical* (requires compromising an

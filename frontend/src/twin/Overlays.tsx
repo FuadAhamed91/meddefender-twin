@@ -1,6 +1,6 @@
-import { Edges, Html } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Boxes, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useMemo, useRef } from "react";
 import {
   AdditiveBlending,
@@ -8,16 +8,17 @@ import {
   CylinderGeometry,
   type Mesh,
   MeshBasicMaterial,
-  QuadraticBezierCurve3,
+  NormalBlending,
+  type QuadraticBezierCurve3,
   Quaternion,
   ShaderMaterial,
   SphereGeometry,
   Vector3,
 } from "three";
 import type { Line2 } from "three/addons/lines/Line2.js";
-import { useDependencyGraph, useNetworkGraph, useRooms, useZones } from "../api/queries";
+import { useNetworkGraph, useZones } from "../api/queries";
 import type { AssetSummary, PolicyOutcome } from "../api/types";
-import { boundsCenter, boundsSize, planToWorld } from "../lib/coords";
+import { planToWorld } from "../lib/coords";
 import { OUTCOME, PATH_CLASS } from "../lib/status";
 import { EDGE_TTL_MS, type TransientEdge, useTwinStore } from "../state/twin";
 import { anchorOf, arc, LINK_HEIGHT } from "./curves";
@@ -125,32 +126,8 @@ export function ZoneOverlay() {
           planToWorld(x0 + 0.15, y1 - 0.15, 0.02),
           planToWorld(x0 + 0.15, y0 + 0.15, 0.02),
         ];
-        const center = boundsCenter(zone.bounds, 0.015);
-        return (
-          <group key={zone.id}>
-            <mesh position={center} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[x1 - x0, y1 - y0]} />
-              <meshBasicMaterial color={zone.color} transparent opacity={0.05} depthWrite={false} />
-            </mesh>
-            <FatLine points={corners} color={zone.color} width={1} opacity={0.45} />
-            <Html
-              transform
-              position={planToWorld(x0 + 0.6, y0 + 0.9, 0.05)}
-              rotation={[-Math.PI / 2, 0, 0]}
-              distanceFactor={9}
-              style={{ pointerEvents: "none" }}
-            >
-              <div className="origin-bottom-left whitespace-nowrap select-none" style={{ transform: "translate(50%, -50%)" }}>
-                <div className="text-[13px] font-semibold tracking-[0.12em] uppercase" style={{ color: zone.color }}>
-                  {zone.name}
-                </div>
-                <div className="font-mono text-[10px] text-ink-muted">
-                  VLAN {zone.vlan_id} · {zone.subnet}
-                </div>
-              </div>
-            </Html>
-          </group>
-        );
+        // Outline only: a tinted floor reads like an alert state, which a zone is not.
+        return <FatLine key={zone.id} points={corners} color={zone.color} width={1.2} opacity={0.55} />;
       })}
     </group>
   );
@@ -165,12 +142,12 @@ export function NetworkOverlay() {
   const selectedId = useTwinStore((s) => s.selectedId);
   const attackActive = useTwinStore((s) => s.attackPath !== null);
   const holo = useTwinStore((s) => s.viewMode === "holographic");
-  if (!data || (!overlays.network && !overlays.topology)) return null;
+  if (!data || !overlays.network) return null;
   return (
     <group>
       {data.edges.map((edge) => {
-        const l2 = edge.relationship_type === "L2_UPLINK";
-        if (l2 ? !overlays.topology : !overlays.network) return null;
+        // L2 uplinks are physical attachment, not permission: listed in the inspector instead.
+        if (edge.relationship_type === "L2_UPLINK") return null;
         const style = OUTCOME_LINE[edge.policy_status];
         const dotted = holo && edge.policy_status === "PERMITTED";
         const related = selectedId !== null && (edge.source === selectedId || edge.destination === selectedId);
@@ -186,100 +163,10 @@ export function NetworkOverlay() {
             dashed={style.dashed || observedPath || dotted}
             dotted={dotted}
             width={related ? style.width + 1 : style.width}
-            opacity={dim ? 0.1 : related ? 0.95 : l2 ? 0.35 : 0.55}
-            lift={l2 ? 0.2 : 0.9}
-            arrow={!l2}
+            opacity={dim ? 0.1 : related ? 0.95 : 0.55}
           />
         );
       })}
-    </group>
-  );
-}
-
-// ---- operational dependencies -----------------------------------------------------------------
-
-function DependencyArc({ from, to, related, dim }: { from: Vector3; to: Vector3; related: boolean; dim: boolean }) {
-  // Keyed on coordinates: the endpoint vectors are rebuilt on every render.
-  const points = useMemo(() => {
-    const a = new Vector3(from.x, from.y, from.z);
-    const b = new Vector3(to.x, to.y, to.z);
-    const mid = a.clone().add(b).multiplyScalar(0.5).add(new Vector3(0, 2.2, 0));
-    return new QuadraticBezierCurve3(a, mid, b).getPoints(ARC_SEGMENTS);
-  }, [from.x, from.y, from.z, to.x, to.y, to.z]);
-  return (
-    <FatLine
-      points={points}
-      color="#a78bfa"
-      width={related ? 2 : 1}
-      dashed
-      dashSize={0.12}
-      gapSize={0.18}
-      opacity={dim ? 0.08 : related ? 0.95 : 0.45}
-    />
-  );
-}
-
-export function DependencyOverlay() {
-  const { data } = useDependencyGraph();
-  const assets = useTwinStore((s) => s.assets);
-  const visible = useTwinStore((s) => s.overlays.dependencies);
-  const selectedId = useTwinStore((s) => s.selectedId);
-  const select = useTwinStore((s) => s.select);
-
-  // Logical services have no physical location: float them above the centroid of what
-  // they depend on, so their dependency arcs stay readable.
-  const servicePositions = useMemo(() => {
-    const out: Record<string, Vector3> = {};
-    if (!data) return out;
-    const services = data.nodes.filter((n) => n.is_logical);
-    for (let pass = 0; pass < 3; pass++) {
-      for (const svc of services) {
-        const points = data.edges
-          .filter((e) => e.dependent === svc.id)
-          .map((e) => (assets[e.provider]?.position ? planToWorld(assets[e.provider].position!.x, assets[e.provider].position!.y, 0) : out[e.provider]))
-          .filter((p): p is Vector3 => Boolean(p));
-        if (points.length) {
-          const c = points.reduce((acc, p) => acc.add(p), new Vector3()).multiplyScalar(1 / points.length);
-          out[svc.id] = new Vector3(c.x, 7.5, c.z);
-        }
-      }
-    }
-    return out;
-  }, [data, assets]);
-
-  if (!data || !visible) return null;
-  const pos = (id: string): Vector3 | null => {
-    const asset = assets[id];
-    if (asset?.position) return planToWorld(asset.position.x, asset.position.y, 3.2);
-    return servicePositions[id] ?? null;
-  };
-  return (
-    <group>
-      {data.edges.map((edge) => {
-        const a = pos(edge.dependent);
-        const b = pos(edge.provider);
-        if (!a || !b) return null;
-        const related = selectedId !== null && (edge.dependent === selectedId || edge.provider === selectedId);
-        const dim = selectedId !== null && !related;
-        return <DependencyArc key={edge.id} from={a} to={b} related={related} dim={dim} />;
-      })}
-      {data.nodes
-        .filter((n) => n.is_logical && servicePositions[n.id])
-        .map((svc) => (
-          <Html key={svc.id} position={servicePositions[svc.id]} center zIndexRange={[19, 0]}>
-            <button
-              type="button"
-              onClick={() => select(svc.id)}
-              aria-label={`${svc.display_name} (logical service)`}
-              className={`flex cursor-pointer items-center gap-1 rounded-md border bg-canvas/90 px-1.5 py-0.5 text-[11px] whitespace-nowrap shadow-lg ${
-                selectedId === svc.id ? "border-dep text-ink" : "border-dep/50 text-ink-muted hover:text-ink"
-              }`}
-            >
-              <Boxes aria-hidden className="size-3 text-dep" />
-              {svc.display_name}
-            </button>
-          </Html>
-        ))}
     </group>
   );
 }
@@ -495,41 +382,7 @@ export function TransientFlows() {
 }
 
 
-// ---- device beacons (holographic view) ------------------------------------------------------
-
-/** Subtle static rings under every messaging device; motion is reserved for alerts. */
-export function DeviceBeacons() {
-  const holo = useTwinStore((s) => s.viewMode === "holographic");
-  const assets = useTwinStore((s) => s.assets);
-  if (!holo) return null;
-  const devices = Object.values(assets).filter((a) => a.trust_state && a.position && !a.is_logical && a.is_active);
-  return (
-    <group>
-      {devices.map((a) => {
-        const p = planToWorld(a.position!.x, a.position!.y, 0.025);
-        return (
-          <group key={a.id} position={p} rotation={[-Math.PI / 2, 0, 0]}>
-            {/* Additive blending: the rings read as light on the floor, not as painted shapes. */}
-            <mesh raycast={() => undefined}>
-              <ringGeometry args={[0.5, 0.54, 48]} />
-              <meshBasicMaterial color="#38bdf8" transparent opacity={0.55} depthWrite={false} blending={AdditiveBlending} />
-            </mesh>
-            <mesh raycast={() => undefined}>
-              <ringGeometry args={[0.82, 0.85, 48]} />
-              <meshBasicMaterial color="#38bdf8" transparent opacity={0.25} depthWrite={false} blending={AdditiveBlending} />
-            </mesh>
-            <mesh raycast={() => undefined}>
-              <circleGeometry args={[0.5, 32]} />
-              <meshBasicMaterial color="#0ea5e9" transparent opacity={0.12} depthWrite={false} blending={AdditiveBlending} />
-            </mesh>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-// ---- status beams (holographic view) --------------------------------------------------------
+// ---- status beams ---------------------------------------------------------------------------
 
 const BEAM_VERT = /* glsl */ `
   varying vec2 vUv;
@@ -564,8 +417,8 @@ const BEAM_FRAG = /* glsl */ `
 const BEAM_GEOMETRY = new CylinderGeometry(0.32, 0.32, 4.5, 24, 1, true);
 const beamMaterialCache = new Map<string, ShaderMaterial>();
 
-function beamMaterial(color: string, opacity: number): ShaderMaterial {
-  const key = `${color}/${opacity}`;
+function beamMaterial(color: string, opacity: number, additive: boolean): ShaderMaterial {
+  const key = `${color}/${opacity}/${additive}`;
   let material = beamMaterialCache.get(key);
   if (!material) {
     material = new ShaderMaterial({
@@ -574,19 +427,21 @@ function beamMaterial(color: string, opacity: number): ShaderMaterial {
       fragmentShader: BEAM_FRAG,
       transparent: true,
       depthWrite: false,
-      blending: AdditiveBlending,
+      // Light adds up nicely on the dark holographic floor but vanishes on the bright
+      // realistic one, where the pillar is drawn as an ordinary translucent column.
+      blending: additive ? AdditiveBlending : NormalBlending,
     });
     beamMaterialCache.set(key, material);
   }
   return material;
 }
 
-function Beam({ at, color, opacity }: { at: Vector3; color: string; opacity: number }) {
+function Beam({ at, color, opacity, additive }: { at: Vector3; color: string; opacity: number; additive: boolean }) {
   return (
     <mesh
       position={[at.x, 2.25, at.z]}
       geometry={BEAM_GEOMETRY}
-      material={beamMaterial(color, opacity)}
+      material={beamMaterial(color, opacity, additive)}
       raycast={() => undefined}
       renderOrder={3}
     />
@@ -594,15 +449,14 @@ function Beam({ at, color, opacity }: { at: Vector3; color: string; opacity: num
 }
 
 /**
- * Holographic view: a light pillar over the selected device and over devices whose backend
- * state needs attention, so they can be spotted from across the floor. Static on purpose;
- * motion stays reserved for live alerts.
+ * A light pillar over the selected device and over devices whose backend state needs
+ * attention, so they can be spotted from across the floor. It is the one state marker in the
+ * scene besides the device tint. Static on purpose; motion stays reserved for live alerts.
  */
 export function StatusBeams() {
-  const holo = useTwinStore((s) => s.viewMode === "holographic");
   const assets = useTwinStore((s) => s.assets);
   const selectedId = useTwinStore((s) => s.selectedId);
-  if (!holo) return null;
+  const holo = useTwinStore((s) => s.viewMode === "holographic");
   const beams: { id: string; at: Vector3; color: string; opacity: number }[] = [];
   for (const asset of Object.values(assets)) {
     if (!asset.position || asset.is_logical || !asset.is_active) continue;
@@ -615,11 +469,12 @@ export function StatusBeams() {
     const state = asset.trust_state ?? "";
     if (contained) beams.push({ id: asset.id, at, color: "#f04452", opacity: 0.75 });
     else if (BEAM_STATES[state]) beams.push({ id: asset.id, at, color: BEAM_STATES[state], opacity: 0.65 });
+    else if (asset.containment_state === "RESTRICTED") beams.push({ id: asset.id, at, color: "#f5b945", opacity: 0.65 });
   }
   return (
     <group>
       {beams.map((b) => (
-        <Beam key={b.id} at={b.at} color={b.color} opacity={b.opacity} />
+        <Beam key={b.id} at={b.at} color={b.color} opacity={b.opacity} additive={holo} />
       ))}
     </group>
   );
@@ -630,45 +485,3 @@ const BEAM_STATES: Record<string, string> = {
   REVOKED: "#d0647a",
   UNREGISTERED: "#c084fc",
 };
-
-// ---- room highlights -------------------------------------------------------------------------
-
-const ROOM_STATE: { test: (a: AssetSummary) => boolean; color: string; label: string }[] = [
-  { test: (a) => a.containment_state === "ISOLATED" || a.trust_state === "QUARANTINED", color: "#f04452", label: "Contained" },
-  { test: (a) => a.trust_state === "SUSPICIOUS", color: "#f5b945", label: "Suspicious activity" },
-  { test: (a) => a.trust_state === "UNREGISTERED", color: "#c084fc", label: "Unregistered device" },
-  { test: (a) => a.containment_state === "RESTRICTED", color: "#f5b945", label: "Restricted" },
-];
-
-/** Rooms holding assets in an abnormal backend state light up as translucent volumes. */
-export function RoomHighlights() {
-  const { data: rooms = [] } = useRooms();
-  const assets = useTwinStore((s) => s.assets);
-  const holo = useTwinStore((s) => s.viewMode === "holographic");
-  const flagged = useMemo(() => {
-    const out: { id: string; color: string; label: string }[] = [];
-    for (const room of rooms) {
-      const inside = Object.values(assets).filter((a) => a.room_id === room.id && a.is_active && !a.is_logical);
-      const state = ROOM_STATE.find((rule) => inside.some(rule.test));
-      if (state) out.push({ id: room.id, color: state.color, label: state.label });
-    }
-    return out;
-  }, [rooms, assets]);
-  return (
-    <group>
-      {flagged.map(({ id, color }) => {
-        const room = rooms.find((r) => r.id === id)!;
-        const { width, depth } = boundsSize(room.bounds);
-        const height = holo ? 2.35 : 0.06;
-        const center = boundsCenter(room.bounds, height / 2 + 0.01);
-        return (
-          <mesh key={id} position={center} raycast={() => undefined}>
-            <boxGeometry args={[width - 0.3, height, depth - 0.3]} />
-            <meshBasicMaterial color={color} transparent opacity={holo ? 0.1 : 0.22} depthWrite={false} />
-            <Edges color={color} />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
