@@ -259,7 +259,7 @@ All settings are environment variables (or `.env` at the repository root).
 | Suite | Command | Last local run |
 |---|---|---|
 | Backend: unit, integration and security tests against a real PostgreSQL (schema built by the Alembic migrations) | `cd backend && uv run pytest -q` | 69 passed |
-| Frontend: unit and component tests (Vitest, jsdom) | `cd frontend && npm test` | 54 passed |
+| Frontend: unit and component tests (Vitest, jsdom) | `cd frontend && npm test` | 56 passed |
 | End to end: Playwright against a running stack (`E2E_BASE_URL`, default the dev server) | `cd frontend && npx playwright test` | 4 passed |
 
 Backend tests read `TEST_DATABASE_URL` (default: the embedded database's

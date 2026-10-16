@@ -353,6 +353,9 @@ export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void })
       // creation, so native anti-aliasing applies when the session starts in reduced mode.
       gl={{ antialias: !full, powerPreference: "high-performance", stencil: false }}
       onPointerMissed={() => select(null)}
+      // Clip rather than hide overflow: a hidden-overflow box still scrolls to reveal a focused
+      // element, so clicking or tabbing to an off-screen device chip slid the canvas out of view.
+      style={{ overflow: "clip" }}
       aria-label="3D digital twin of the simulated hospital"
       role="img"
     >

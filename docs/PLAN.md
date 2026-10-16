@@ -50,5 +50,5 @@ session checks, security headers, account lockout and indistinguishable login fa
 | Suite | Count | Where it runs |
 |---|---|---|
 | Backend (pytest, real PostgreSQL, schema from migrations) | 69 tests | Locally and in CI |
-| Frontend unit and component (Vitest) | 54 tests | Locally and in CI |
+| Frontend unit and component (Vitest) | 56 tests | Locally and in CI |
 | End to end (Playwright, Chromium with software WebGL) | 4 tests | Locally against the dev servers; in CI against the Compose stack |

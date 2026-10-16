@@ -319,7 +319,7 @@ export default function TwinPage() {
         </Panel>
       </aside>
 
-      <section className="relative order-1 min-h-[22rem] overflow-hidden rounded-lg border border-line bg-canvas lg:order-2" aria-label="Digital twin view">
+      <section className="relative order-1 min-h-[22rem] overflow-clip rounded-lg border border-line bg-canvas lg:order-2" aria-label="Digital twin view">
         {ready ? <TwinCanvas onModelFallback={() => setFallback(true)} /> : <div className="p-4 text-[13px] text-ink-muted">Loading twin state…</div>}
         <div className="pointer-events-none absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-2">
           <div className="pointer-events-auto flex flex-col gap-2">
