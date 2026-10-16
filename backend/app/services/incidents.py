@@ -8,6 +8,7 @@ existing one. Incident timeline entries are append-only (enforced by a DB trigge
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -28,6 +29,7 @@ from app.models.enums import (
 )
 from app.services.context import UnitOfWork
 from app.services.detection import rule as get_rule
+from app.services.queries import open_incident_counts
 
 IS = IncidentStatus
 
@@ -121,11 +123,12 @@ def raise_alert(
     incident, created = _correlate(
         uow, alert, rule.opens_incident, subject_ref, asset_id, simulation_run_id
     )
+    newly_linked: list[str] = []
     if incident is not None:
         alert.incident_id = incident.id
-        _link_asset(session, incident, asset_id, "PRIMARY", uow)
-        for related_id, role in related_assets or []:
-            _link_asset(session, incident, related_id, role, uow)
+        for linked_id, role in [(asset_id, "PRIMARY"), *(related_assets or [])]:
+            if linked_id and _link_asset(session, incident, linked_id, role, uow):
+                newly_linked.append(linked_id)
         add_incident_event(
             uow,
             incident,
@@ -157,6 +160,7 @@ def raise_alert(
             "incident_reference": incident.reference if incident else None,
         },
     )
+    publish_open_incident_counts(uow, newly_linked)
     return AlertOutcome(alert, incident, created)
 
 
@@ -257,22 +261,37 @@ def _correlate(
 
 
 def _link_asset(
-    session: Session, incident: Incident, asset_id: str | None, role: str, uow: UnitOfWork
-) -> None:
-    if not asset_id:
-        return
+    session: Session, incident: Incident, asset_id: str, role: str, uow: UnitOfWork
+) -> bool:
+    """Link an asset to the incident, keeping the strongest role. True when the link is new."""
     link = session.get(IncidentAsset, (incident.id, asset_id))
     if link is None:
         session.add(
             IncidentAsset(incident_id=incident.id, asset_id=asset_id, role=role, added_at=uow.now)
         )
-    elif ROLE_STRENGTH.get(role, 0) > ROLE_STRENGTH.get(link.role, 0):
+        return True
+    if ROLE_STRENGTH.get(role, 0) > ROLE_STRENGTH.get(link.role, 0):
         link.role = role
+    return False
 
 
 def link_assets(uow: UnitOfWork, incident: Incident, links: list[tuple[str, str]]) -> None:
-    for asset_id, role in links:
-        _link_asset(uow.session, incident, asset_id, role, uow)
+    added = [a for a, role in links if _link_asset(uow.session, incident, a, role, uow)]
+    publish_open_incident_counts(uow, added)
+
+
+def publish_open_incident_counts(uow: UnitOfWork, asset_ids: Iterable[str]) -> None:
+    """Emit the current open-incident count of each asset whose count may have changed, so
+    the twin's incident badges follow incidents as they open, gain assets and resolve."""
+    ids = sorted(set(asset_ids))
+    if not ids:
+        return
+    uow.session.flush()
+    counts = open_incident_counts(uow.session, uow.epoch, ids)
+    for asset_id in ids:
+        uow.emit(
+            "asset.updated", {"asset_id": asset_id, "open_incident_count": counts.get(asset_id, 0)}
+        )
 
 
 def add_incident_event(
@@ -377,6 +396,11 @@ def transition_incident(
         incident_id=incident.id,
     )
     uow.emit("incident.updated", incident_summary(incident))
+    if target is IncidentStatus.RESOLVED:
+        linked = uow.session.scalars(
+            select(IncidentAsset.asset_id).where(IncidentAsset.incident_id == incident.id)
+        )
+        publish_open_incident_counts(uow, linked)
 
 
 def _check_manual_guards(

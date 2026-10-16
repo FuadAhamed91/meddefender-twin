@@ -7,6 +7,7 @@ it is never stored, so a line in the twin always reflects current policy.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Collection
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -53,14 +54,18 @@ def latest_event_id(session: Session) -> int:
     return session.scalar(select(func.max(EventLogEntry.id))) or 0
 
 
-def open_incident_counts(session: Session, epoch: int) -> dict[str, int]:
-    rows = session.execute(
+def open_incident_counts(
+    session: Session, epoch: int, asset_ids: Collection[str] | None = None
+) -> dict[str, int]:
+    query = (
         select(IncidentAsset.asset_id, func.count(IncidentAsset.incident_id))
         .join(Incident, Incident.id == IncidentAsset.incident_id)
         .where(Incident.status != IncidentStatus.RESOLVED, Incident.epoch == epoch)
         .group_by(IncidentAsset.asset_id)
-    ).all()
-    return {asset_id: count for asset_id, count in rows}
+    )
+    if asset_ids is not None:
+        query = query.where(IncidentAsset.asset_id.in_(asset_ids))
+    return {asset_id: count for asset_id, count in session.execute(query).all()}
 
 
 def asset_summaries(session: Session) -> list[dict[str, Any]]:

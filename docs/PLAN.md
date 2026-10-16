@@ -30,7 +30,7 @@ Backend tests live in `backend/tests/`, end-to-end tests in `frontend/e2e/`.
 | 9 | Network relationships and dependencies remain distinct | `test_network_and_dependency_graphs_are_distinct`, `test_relationship_status_reflects_current_policy` |
 | 10 | Incident transitions follow rules | `test_incident_transitions_are_enforced`, `test_incident_timeline_is_append_only` |
 | 11 | Containment changes backend state | `test_containment_apply_changes_backend_state_and_emits_events`, `test_scenario_f_compares_plans_after_d` |
-| 12 | Twin receives resulting state updates | `test_websocket_streams_twin_updates`, `test_websocket_resync_replays_missed_events`; E2E "the live twin maps every backend asset..." |
+| 12 | Twin receives resulting state updates | `test_websocket_streams_twin_updates`, `test_websocket_resync_replays_missed_events`, `test_open_incident_counts_reach_the_twin_live`; E2E "the live twin maps every backend asset..." |
 | 13 | Audit events preserve decision and reason | `test_audit_events_record_decision_and_reason` |
 | 14 | Users cannot exceed their roles | `test_viewer_cannot_run_scenarios_and_denial_is_audited`, `test_viewer_cannot_transition_incidents`, `test_operator_cannot_reset_or_manage_identities_or_policies`; E2E "a viewer can look but cannot run attack scenarios" |
 | 15 | Refresh preserves incidents and state | `test_state_survives_application_restart` |
@@ -49,6 +49,6 @@ session checks, security headers, account lockout and indistinguishable login fa
 
 | Suite | Count | Where it runs |
 |---|---|---|
-| Backend (pytest, real PostgreSQL, schema from migrations) | 68 tests | Locally and in CI |
-| Frontend unit and component (Vitest) | 53 tests | Locally and in CI |
+| Backend (pytest, real PostgreSQL, schema from migrations) | 69 tests | Locally and in CI |
+| Frontend unit and component (Vitest) | 54 tests | Locally and in CI |
 | End to end (Playwright, Chromium with software WebGL) | 4 tests | Locally against the dev servers; in CI against the Compose stack |

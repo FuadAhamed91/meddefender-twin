@@ -49,6 +49,49 @@ def test_viewer_cannot_transition_incidents(client):
     assert transition(client, viewer_headers, incident["id"], "INVESTIGATING").status_code == 403
 
 
+def gateway_counts_published(queue) -> list[int]:
+    counts = []
+    while not queue.empty():
+        event = queue.get_nowait()
+        payload = event.get("payload") or {}
+        if (
+            event["type"] == "asset.updated"
+            and payload.get("asset_id") == "ICU-GATEWAY-01"
+            and "open_incident_count" in payload
+        ):
+            counts.append(payload["open_incident_count"])
+    return counts
+
+
+def gateway_count_in_snapshot(client) -> int:
+    assets = client.get("/api/v1/twin/state").json()["assets"]
+    return next(a["open_incident_count"] for a in assets if a["id"] == "ICU-GATEWAY-01")
+
+
+def test_open_incident_counts_reach_the_twin_live(client, services):
+    """Incident badges in the twin follow incidents as they open and resolve, without a
+    snapshot reload: every change publishes the asset's count as stored."""
+    headers = login(client, "operator")
+    queue = services.bus.subscribe()
+    try:
+        incident = open_gateway_incident(client, headers)
+        opened = gateway_counts_published(queue)
+        before = gateway_count_in_snapshot(client)
+        assert before >= 1
+        assert opened and opened[-1] == before
+
+        transition(client, headers, incident["id"], "INVESTIGATING")
+        resolved = transition(
+            client, headers, incident["id"], "RESOLVED", resolution="FALSE_POSITIVE"
+        )
+        assert resolved.status_code == 200
+        after = gateway_count_in_snapshot(client)
+        assert after == before - 1
+        assert gateway_counts_published(queue)[-1] == after
+    finally:
+        services.bus.unsubscribe(queue)
+
+
 def test_containment_apply_changes_backend_state_and_emits_events(client, services, app):
     headers = login(client, "operator")
     incident = open_gateway_incident(client, headers)

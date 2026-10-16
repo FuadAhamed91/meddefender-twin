@@ -164,12 +164,13 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
         break;
       }
       case "asset.updated": {
+        // Carries a containment change or a new open-incident count; merge only what it has.
         const id = String(payload.asset_id);
         if (state.assets[id]) {
-          patch.assets = {
-            ...state.assets,
-            [id]: { ...state.assets[id], containment_state: payload.containment_state as AssetSummary["containment_state"] },
-          };
+          const update: Partial<AssetSummary> = {};
+          if (typeof payload.containment_state === "string") update.containment_state = payload.containment_state as AssetSummary["containment_state"];
+          if (typeof payload.open_incident_count === "number") update.open_incident_count = payload.open_incident_count;
+          patch.assets = { ...state.assets, [id]: { ...state.assets[id], ...update } };
         }
         break;
       }

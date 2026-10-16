@@ -74,6 +74,15 @@ describe("twin store", () => {
     expect(useTwinStore.getState().assets["NOT-AN-ASSET"]).toBeUndefined();
   });
 
+  it("keeps containment and open-incident counts live without dropping the other", () => {
+    useTwinStore.getState().loadSnapshot(snapshot());
+    apply({ id: 41, type: "asset.updated", payload: { asset_id: "ICU-GATEWAY-01", open_incident_count: 1 } });
+    apply({ id: 42, type: "asset.updated", payload: { asset_id: "ICU-GATEWAY-01", containment_state: "RESTRICTED" } });
+    expect(useTwinStore.getState().assets["ICU-GATEWAY-01"]).toMatchObject({ open_incident_count: 1, containment_state: "RESTRICTED" });
+    apply({ id: 43, type: "asset.updated", payload: { asset_id: "ICU-GATEWAY-01", open_incident_count: 0 } });
+    expect(useTwinStore.getState().assets["ICU-GATEWAY-01"]).toMatchObject({ open_incident_count: 0, containment_state: "RESTRICTED" });
+  });
+
   it("counts telemetry decisions", () => {
     apply({ id: 1, type: "telemetry.processed", payload: { decision: "ACCEPTED" } });
     apply({ id: 2, type: "telemetry.processed", payload: { decision: "HELD" } });

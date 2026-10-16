@@ -258,8 +258,8 @@ All settings are environment variables (or `.env` at the repository root).
 
 | Suite | Command | Last local run |
 |---|---|---|
-| Backend: unit, integration and security tests against a real PostgreSQL (schema built by the Alembic migrations) | `cd backend && uv run pytest -q` | 68 passed |
-| Frontend: unit and component tests (Vitest, jsdom) | `cd frontend && npm test` | 53 passed |
+| Backend: unit, integration and security tests against a real PostgreSQL (schema built by the Alembic migrations) | `cd backend && uv run pytest -q` | 69 passed |
+| Frontend: unit and component tests (Vitest, jsdom) | `cd frontend && npm test` | 54 passed |
 | End to end: Playwright against a running stack (`E2E_BASE_URL`, default the dev server) | `cd frontend && npx playwright test` | 4 passed |
 
 Backend tests read `TEST_DATABASE_URL` (default: the embedded database's
@@ -278,7 +278,7 @@ out-of-sequence messages rejected (including concurrent duplicates and after an 
 restart); rejected telemetry never overwrites trusted state; unauthorized commands and
 flows denied with explanations; rogue devices gain no trust; attack paths respect policy;
 graphs stay distinct; incident transitions follow the lifecycle; containment changes
-backend state and the twin receives it over the WebSocket; audit rows cannot be updated or
+backend state, and the twin receives it and every open-incident count live; audit rows cannot be updated or
 deleted and tampering breaks the hash chain; users cannot exceed their role; CSRF and
 WebSocket Origin checks; secrets never appear in responses.
 
