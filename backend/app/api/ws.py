@@ -112,7 +112,8 @@ async def events(websocket: WebSocket, since: int | None = None) -> None:
                     if message_id <= last_sent:
                         continue
                     last_sent = message_id
-                await websocket.send_json(message)
+                if not await _send(websocket, message):
+                    return
         finally:
             receiver.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -121,6 +122,20 @@ async def events(websocket: WebSocket, since: int | None = None) -> None:
         pass
     finally:
         services.bus.unsubscribe(queue)
+
+
+async def _send(websocket: WebSocket, message: dict[str, Any]) -> bool:
+    """Send one event; False when the client has already gone.
+
+    When the browser closes the socket, the server completes the close handshake before
+    `_drain_client` notices, and a send that races with it is refused with RuntimeError
+    rather than WebSocketDisconnect. Either way the subscriber is gone: stop quietly.
+    """
+    try:
+        await websocket.send_json(message)
+    except (WebSocketDisconnect, RuntimeError):
+        return False
+    return True
 
 
 async def _drain_client(websocket: WebSocket) -> None:

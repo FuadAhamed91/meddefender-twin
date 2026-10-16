@@ -94,8 +94,11 @@ export function AssetInspector({ assetId }: { assetId: string }) {
                 if (attackPath?.entry_asset_id === asset.id) {
                   setAttackPath(null);
                   setAnalyze(false);
-                } else {
+                } else if (!analyze) {
+                  // Enabling the query fetches the analysis. (Calling refetch here would run
+                  // before the state update and post a request without an entry asset.)
                   setAnalyze(true);
+                } else {
                   void paths.refetch();
                 }
               }}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isSoftwareRenderer } from "../twin/gpu";
 import type {
   AssetSummary,
   AttackPathResult,
@@ -65,6 +66,8 @@ interface TwinStore {
   mappingIssues: string[];
   viewMode: ViewMode;
   renderQuality: RenderQuality;
+  /** WebGL runs on a CPU rasteriser: the twin renders on demand at a capped rate. */
+  cpuRenderer: boolean;
   /** Set when the quality was reduced automatically, explaining why. */
   renderNote: string | null;
 
@@ -91,6 +94,21 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
   } catch {
     return fallback;
   }
+}
+
+/** A choice the user made wins; otherwise reduce automatically on a software renderer. */
+function initialQuality(): { renderQuality: RenderQuality; renderNote: string | null; cpuRenderer: boolean } {
+  const cpuRenderer = isSoftwareRenderer();
+  let chosen: string | null = null;
+  try {
+    chosen = localStorage.getItem("md.renderQuality");
+  } catch {
+    /* storage unavailable: fall through to detection */
+  }
+  if (chosen === "full" || chosen === "reduced") return { renderQuality: chosen, renderNote: null, cpuRenderer };
+  return cpuRenderer
+    ? { renderQuality: "reduced", renderNote: "software rendering, no GPU acceleration", cpuRenderer }
+    : { renderQuality: "full", renderNote: null, cpuRenderer };
 }
 
 function remember(key: string, value: string): void {
@@ -125,8 +143,7 @@ export const useTwinStore = create<TwinStore>((set, get) => ({
   focus: { kind: "overview", ids: [], nonce: 0 },
   mappingIssues: [],
   viewMode: stored<ViewMode>("md.viewMode", ["holographic", "realistic"], "holographic"),
-  renderQuality: stored<RenderQuality>("md.renderQuality", ["full", "reduced"], "full"),
-  renderNote: null,
+  ...initialQuality(),
 
   loadSnapshot: (snapshot) =>
     set({

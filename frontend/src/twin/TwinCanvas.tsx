@@ -1,7 +1,7 @@
 import { CameraControls, Environment as EnvironmentMap, Grid, Html, Lightformer, PerformanceMonitor, useProgress } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Component, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BackSide, Box3, Color, type DirectionalLight, type Mesh, ShaderMaterial, Sphere, Vector3, type WebGLRenderer } from "three";
+import { BackSide, Box3, Color, type DirectionalLight, type Mesh, type PerspectiveCamera, ShaderMaterial, Sphere, Vector3 } from "three";
 import { useZones } from "../api/queries";
 import { FLOOR_BOUNDS, planToWorld } from "../lib/coords";
 import { useTwinStore } from "../state/twin";
@@ -24,16 +24,24 @@ const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce
 // The establishing shot plays once per page load, after the model has loaded.
 let introPending = true;
 
-function overviewSphere(): Sphere {
+function overviewSphere(aspect: number): Sphere {
   // fitToBox snaps angles to 90-degree steps, so fit a bounding sphere instead to keep the
   // three-quarter view.
   const floor = new Box3(planToWorld(FLOOR_BOUNDS.min[0], FLOOR_BOUNDS.max[1], 0), planToWorld(FLOOR_BOUNDS.max[0], FLOOR_BOUNDS.min[1], 3));
   const sphere = floor.getBoundingSphere(new Sphere());
-  sphere.radius *= 0.76;
+  // The floor is much wider than it is deep. On wide canvases the height limits the fit and a
+  // smaller sphere fills the view; on squarer canvases the width limits it, so fit the full
+  // floor instead of cropping its sides.
+  const t = Math.min(1, Math.max(0, (aspect - 1) / 0.6));
+  sphere.radius *= 0.95 - 0.19 * t;
   // Aim slightly south of the floor's centre: from the south-west viewpoint the near half of
   // the building looks larger, so this centres it visually instead of leaving empty sky above.
   sphere.center.z += 2.5;
   return sphere;
+}
+
+function aspectOf(controls: CameraControls): number {
+  return (controls.camera as PerspectiveCamera).aspect || 1.6;
 }
 
 function CameraRig() {
@@ -53,7 +61,7 @@ function CameraRig() {
       }
       const animate = focus.nonce > 0;
       void controls.setLookAt(...OVERVIEW.position.toArray(), ...OVERVIEW.target.toArray(), animate);
-      void controls.fitToSphere(overviewSphere(), animate);
+      void controls.fitToSphere(overviewSphere(aspectOf(controls)), animate);
       return;
     }
     if (focus.kind === "asset") {
@@ -108,7 +116,7 @@ function IntroFlight() {
     if (focus.kind !== "overview" || focus.nonce !== 0 || reducedMotion()) return;
     controls.smoothTime = 1.1;
     void controls.setLookAt(...OVERVIEW.position.toArray(), ...OVERVIEW.target.toArray(), true);
-    void controls.fitToSphere(overviewSphere(), true);
+    void controls.fitToSphere(overviewSphere(aspectOf(controls)), true);
     // Restore normal responsiveness after the glide (not tied to unmount: StrictMode re-runs effects).
     window.setTimeout(() => {
       controls.smoothTime = 0.35;
@@ -227,7 +235,8 @@ function SunLight({ shadows }: { shadows: boolean }) {
   );
 }
 
-function Atmosphere({ shadows }: { shadows: boolean }) {
+/** Lights, sky and ground. `full` adds shadow maps and image-based lighting (both costly on a CPU renderer). */
+function Atmosphere({ full }: { full: boolean }) {
   const mode = useTwinStore((s) => s.viewMode);
   const holo = mode === "holographic";
   const sky = holo ? SKY.holographic : SKY.realistic;
@@ -243,21 +252,23 @@ function Atmosphere({ shadows }: { shadows: boolean }) {
       <fog attach="fog" args={[sky.fog, 95, 210]} />
       <Backdrop holo={holo} />
       {/* Image-based lighting from procedural light panels: soft reflections, no HDR download. */}
-      <EnvironmentMap key={mode} resolution={256} frames={1} environmentIntensity={holo ? 0.45 : 0.25}>
-        {holo ? (
-          <>
-            <Lightformer form="rect" intensity={2.2} color="#3b82f6" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[40, 40, 1]} />
-            <Lightformer form="ring" intensity={3} color="#22d3ee" position={[30, 8, 30]} scale={12} />
-            <Lightformer form="rect" intensity={1.2} color="#6366f1" position={[-30, 6, -10]} rotation-y={Math.PI / 2} scale={[30, 8, 1]} />
-          </>
-        ) : (
-          <>
-            <Lightformer form="rect" intensity={3.2} color="#ffffff" position={[0, 14, 0]} rotation-x={Math.PI / 2} scale={[60, 40, 1]} />
-            <Lightformer form="rect" intensity={1.4} color="#dbeafe" position={[-35, 8, 0]} rotation-y={Math.PI / 2} scale={[40, 10, 1]} />
-            <Lightformer form="rect" intensity={1.0} color="#fff7ed" position={[35, 8, 10]} rotation-y={-Math.PI / 2} scale={[40, 10, 1]} />
-          </>
-        )}
-      </EnvironmentMap>
+      {full ? (
+        <EnvironmentMap key={mode} resolution={256} frames={1} environmentIntensity={holo ? 0.45 : 0.25}>
+          {holo ? (
+            <>
+              <Lightformer form="rect" intensity={2.2} color="#3b82f6" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[40, 40, 1]} />
+              <Lightformer form="ring" intensity={3} color="#22d3ee" position={[30, 8, 30]} scale={12} />
+              <Lightformer form="rect" intensity={1.2} color="#6366f1" position={[-30, 6, -10]} rotation-y={Math.PI / 2} scale={[30, 8, 1]} />
+            </>
+          ) : (
+            <>
+              <Lightformer form="rect" intensity={3.2} color="#ffffff" position={[0, 14, 0]} rotation-x={Math.PI / 2} scale={[60, 40, 1]} />
+              <Lightformer form="rect" intensity={1.4} color="#dbeafe" position={[-35, 8, 0]} rotation-y={Math.PI / 2} scale={[40, 10, 1]} />
+              <Lightformer form="rect" intensity={1.0} color="#fff7ed" position={[35, 8, 10]} rotation-y={-Math.PI / 2} scale={[40, 10, 1]} />
+            </>
+          )}
+        </EnvironmentMap>
+      ) : null}
       {holo ? (
         <>
           <hemisphereLight args={["#9cc9ff", "#020617", 0.65]} />
@@ -280,7 +291,7 @@ function Atmosphere({ shadows }: { shadows: boolean }) {
         <>
           {/* Cool sky fill against a warm sun: shadows read slightly blue, lit areas warm. */}
           <hemisphereLight args={["#b3c8f0", "#1c2430", 0.6]} />
-          <SunLight shadows={shadows} />
+          <SunLight shadows={full} />
           <directionalLight position={[-30, 30, -40]} intensity={0.25} color="#b8d4ff" />
           {/* Unlit dark ground: a calm backdrop that never competes with the building. */}
           <mesh position={ground} rotation={[-Math.PI / 2, 0, 0]}>
@@ -293,40 +304,44 @@ function Atmosphere({ shadows }: { shadows: boolean }) {
   );
 }
 
-// Renderers without GPU acceleration (headless browsers, VMs, remote desktops).
-const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+// On a CPU rasteriser every frame is expensive: render on demand, at most this often.
+const CPU_FRAME_INTERVAL_MS = 100;
 
-function rendererName(gl: WebGLRenderer): string {
-  const context = gl.getContext();
-  const info = context.getExtension("WEBGL_debug_renderer_info");
-  return String(context.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : context.RENDERER));
+/** Requests frames at a fixed, modest rate (demand frameloop): animations still advance, but
+ *  frames never queue up faster than a software renderer can draw them. */
+function FrameCap() {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const timer = window.setInterval(() => invalidate(), CPU_FRAME_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [invalidate]);
+  return null;
 }
 
 export function TwinCanvas({ onModelFallback }: { onModelFallback: () => void }) {
   const select = useTwinStore((s) => s.select);
   const full = useTwinStore((s) => s.renderQuality === "full");
+  const cpu = useTwinStore((s) => s.cpuRenderer);
   const [dpr, setDpr] = useState(() => Math.min(1.5, window.devicePixelRatio || 1));
   return (
     <Canvas
       camera={{ position: INTRO.position.toArray(), fov: 42, near: 0.3, far: 400 }}
-      dpr={full ? dpr : 1}
+      // Unbounded frames on a CPU rasteriser pile up and starve the page; cap them and render
+      // fewer pixels there.
+      frameloop={cpu ? "demand" : "always"}
+      dpr={cpu ? 0.6 : full ? dpr : 1}
       shadows="percentage"
       // Full quality anti-aliases in the effect composer (MSAA); context options are fixed at
       // creation, so native anti-aliasing applies when the session starts in reduced mode.
       gl={{ antialias: !full, powerPreference: "high-performance", stencil: false }}
-      onCreated={({ gl }) => {
-        // Post-processing on a CPU rasteriser would stall the whole page: reduce automatically.
-        if (full && SOFTWARE_RENDERER.test(rendererName(gl))) {
-          useTwinStore.getState().setRenderQuality("reduced", "software rendering, no GPU acceleration");
-        }
-      }}
       onPointerMissed={() => select(null)}
       aria-label="3D digital twin of the simulated hospital"
       role="img"
     >
       {/* Adaptive quality: drop resolution on slow GPUs, raise it again when there is headroom. */}
       <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(Math.min(2, window.devicePixelRatio || 1))} />
-      <Atmosphere shadows={full} />
+      {cpu ? <FrameCap /> : null}
+      <Atmosphere full={full} />
       <Suspense fallback={<Loader />}>
         <ModelBoundary
           fallback={

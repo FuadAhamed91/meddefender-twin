@@ -76,7 +76,7 @@ meddefender-twin/
 ├── backend/                 FastAPI modular monolith (Python 3.12)
 │   ├── app/
 │   │   ├── api/             HTTP + WebSocket routers (thin; no business logic)
-│   │   ├── core/            settings, clock, crypto primitives, errors, logging
+│   │   ├── core/            settings, clock, crypto primitives, errors
 │   │   ├── db/              engine, session, declarative base
 │   │   ├── models/          SQLAlchemy ORM models
 │   │   ├── schemas/         Pydantic request/response contracts
@@ -84,12 +84,21 @@ meddefender-twin/
 │   │   ├── simulator/       simulated devices, telemetry generator, scenarios A-F
 │   │   └── seed/            reproducible baseline dataset
 │   ├── alembic/             schema migrations (incl. audit immutability trigger)
-│   └── tests/               pytest: unit, integration, security
+│   ├── tests/               pytest: unit, integration, security (real PostgreSQL)
+│   ├── scripts/             embedded PostgreSQL helper for machines without Docker
+│   └── Dockerfile           API image; entrypoint runs migrations and the seed
 ├── frontend/                React + TypeScript + Vite + Tailwind + React Three Fiber
+│   ├── src/api/             fetch client (CSRF), types, TanStack Query hooks
+│   ├── src/state/           live store (Zustand) and the WebSocket connection
+│   ├── src/twin/            3D scene: model mapping, overlays, effects, materials
+│   ├── src/pages/, features/  console pages, inspector, incident workflow
+│   ├── e2e/                 Playwright end-to-end tests
+│   └── Dockerfile, nginx/   static build behind nginx, which proxies /api and /ws
 ├── blender/                 headless Blender build script -> hospital.glb
 ├── shared/                  hospital_layout.json: single source of layout truth
-├── docs/                    architecture, threat model, API, demo
-└── docker-compose.yml
+├── docs/                    architecture, threat model, demo walkthrough, plan
+├── docker-compose.yml
+└── .github/workflows/       CI: tests, build, Compose smoke and end-to-end tests
 ```
 
 ## 4. Hospital model
@@ -242,19 +251,27 @@ type (`DATA_SOURCE`, `DATA_AGGREGATION`, `APPLICATION_HOSTING`, `AUTHENTICATION`
 `CONFIGURATION_MANAGEMENT`) and a criticality.
 
 **Attack-path analysis:** bounded search from an entry asset over flows the policy engine
-evaluates as *permitted*, under the current enforcement state. Every hop is labelled:
+evaluates as *permitted*, under the current enforcement state. Reachability comes from
+policy, not from drawn lines: candidate edges are every modeled relationship (except L2
+topology) plus every concrete (source, destination, service) implied by an active allow
+policy, with zone selectors expanded to their member assets. Each candidate is then
+evaluated by the policy engine, so a higher-priority deny always wins. Every hop is
+labelled:
 
-* `DEMONSTRATED` — observed and permitted during the simulation;
-* `PERMITTED` — allowed by policy but not observed;
-* `HYPOTHETICAL` — requires compromise of an intermediate asset (multi-hop);
-* `DENIED` — blocked by an enforced policy (reported as blocked attempts, never traversed).
+* `DEMONSTRATED`: observed and permitted during the simulation;
+* `PERMITTED`: allowed by policy but not observed;
+* `HYPOTHETICAL`: requires compromise of an intermediate asset (multi-hop);
+* blocked edges are reported as blocked attempts and never traversed.
 
 Physically nearby but unreachable assets are reported separately.
 
 **Containment impact:** a dependency is disrupted when its provider is isolated or the flow
-that carries it is blocked. Disruption propagates through dependents according to
-criticality. Plans are compared on blocked flows, attack-path reduction, residual paths,
-disrupted dependencies and affected services.
+that carries it is blocked. Only HIGH or CRITICAL impairments propagate to the provider's
+dependents (at the dependency's own criticality); lower-criticality disruptions are listed
+but not cascaded, because the model cannot tell whether the lost function is the one the
+dependent relies on. Plans are evaluated as hypothetical policy sets, without writing
+anything, and compared on blocked flows, attack-path reduction, residual paths, disrupted
+dependencies and affected services.
 
 ## 8. Real-time contract
 
@@ -265,7 +282,58 @@ disrupted dependencies and affected services.
 * Events are published only **after** the database transaction commits.
 * No secrets ever appear in events.
 
-## 9. Known architectural limitations
+## 9. Digital twin client
+
+The console is a React single-page app; the twin is a React Three Fiber scene inside it.
+
+* **State flow.** `LiveConnection` loads `GET /api/v1/twin/state`, then opens
+  `/ws/events?since=<id>`, applies events to a Zustand store and reconnects with backoff,
+  falling back to a full resync when told to. Server data that pages need (incidents,
+  graphs, policies) comes from TanStack Query and is invalidated by relevant events.
+* **Mapping.** The GLB's asset nodes carry `extras.asset_id`. On load the client indexes
+  them, compares them with the backend inventory and reports the result in the scene
+  ("Twin mapping verified · 21 assets", or the specific mismatches). Picking walks up to
+  the nearest node with an asset ID; asset chips are DOM buttons so they are keyboard and
+  screen-reader accessible.
+* **What is drawn, and from where.** Device tints, room volumes and light pillars come only
+  from backend trust and containment state. Network arcs are coloured by the current
+  policy decision. Dependency arcs come from the separate dependency graph. Short-lived
+  comets come from flow and policy events on the stream, and attack paths and containment
+  previews come from the corresponding API results. Motion is reserved for live events;
+  potential attack paths are drawn statically so they are not mistaken for traffic.
+* **Rendering.** Two view styles (holographic: fresnel hologram shaders, gridded floors,
+  bloom; realistic: shadow-mapped key light, image-based lighting from procedural light
+  panels, ambient occlusion, floor tiles) and two effect levels. *Reduced* (no
+  post-processing, shadow maps or environment lighting) is selected before the 3D view is
+  created when a probe shows WebGL running on a software renderer; there the scene also
+  renders on demand at about 10 frames per second and at lower resolution, because
+  unbounded frames on a CPU rasteriser pile up and starve the page. Overlay lines, comets
+  and pillars keep their materials for their whole life and
+  update geometry in place, so live updates never force a shader program to be recompiled.
+  On a cold shader cache or a CPU renderer such recompiles blocked the page for seconds.
+* **Accessibility.** Every status pairs a color with an icon and a text label, charts have
+  table views, dialogs for privileged actions require a written justification, and
+  `prefers-reduced-motion` disables the camera intro and pulses.
+
+## 10. Deployment (Docker Compose)
+
+```
+browser ──http://localhost:8080──▶ nginx (frontend image)
+                                    ├─ /           static build (CSP, security headers)
+                                    ├─ /api/       ─▶ backend:8000 (FastAPI, uvicorn)
+                                    └─ /ws/        ─▶ backend:8000 (WebSocket upgrade)
+backend ─▶ db:5432 (PostgreSQL 16, named volume)
+```
+
+* One origin for the console, API and WebSocket: the session cookie (SameSite=Strict), the
+  CSRF double-submit and the WebSocket Origin check all assume it.
+* The backend container runs `alembic upgrade head` and the idempotent seed before starting
+  a single uvicorn worker (the event bus is in-process). It is not published to the host,
+  so its forwarded headers can only come from nginx.
+* Services start in dependency order, gated on healthchecks; the web port is bound to
+  127.0.0.1 because the demo accounts have known passwords.
+
+## 11. Known architectural limitations
 
 * The event bus is in-process: horizontal scaling to multiple workers would need
   PostgreSQL `LISTEN/NOTIFY` or a broker.

@@ -320,7 +320,7 @@ export function AttackPathOverlay() {
       {entryPos ? (
         <>
           <Ring at={entryPos} color="#f04452" radius={1.15} />
-          <Html position={[entryPos.x, 3.3, entryPos.z]} center zIndexRange={[25, 0]} style={{ pointerEvents: "none" }}>
+          <Html position={[entryPos.x, 4.4, entryPos.z]} center zIndexRange={[25, 0]} style={{ pointerEvents: "none" }}>
             <div className="rounded border border-crit/60 bg-canvas/95 px-1.5 py-0.5 text-[10.5px] font-semibold whitespace-nowrap text-crit">
               Entry (assumed compromised)
             </div>

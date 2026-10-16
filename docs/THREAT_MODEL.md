@@ -61,6 +61,9 @@ simulation cannot support.
 | Trust-state gating | Commands from suspicious, quarantined or revoked identities | Data-plane abuse by an identity that has not yet triggered any rule |
 | Append-only audit + hash chain | Modification through normal application paths; makes silent edits detectable | A database superuser who disables triggers and rewrites the whole chain (anchoring the head hash externally would be a future extension) |
 | RBAC (viewer < operator < security_admin) | Privilege misuse through the API | Compromise of an admin account |
+| Uniform ingest rejections (every unauthenticated rejection returns 401 with the same body shape; only malformed or oversized bodies differ) | Enumerating which device IDs exist through the ingest endpoint | Timing side channels (not measured) |
+| Indistinguishable login failures + account lockout | Username enumeration and online password guessing | Credential stuffing across many accounts below the per-account threshold |
+| Security headers (API: `default-src 'none'`, no-store; console: same-origin CSP, `frame-ancestors 'none'`) | Clickjacking, content sniffing, script injection from other origins, caching of API data | A compromised build pipeline or server |
 
 Application-level append-only storage is **not** equivalent to tamper-proof external
 logging (WORM storage, a SIEM, or a transparency log).
@@ -122,7 +125,21 @@ payload encryption (TLS/DTLS would be used in practice), compromised-key scenari
 documentation, physical attacks, denial of service against the platform, supply-chain
 attacks, and anything that interacts with real medical devices.
 
-## 10. What the simulation does not establish
+## 10. Deployment assumptions (Docker Compose demo)
+
+* The stack is a **local demo**: the web port is bound to 127.0.0.1 and the seed creates
+  accounts whose passwords sit in `.env`. Exposing it beyond the local machine requires new
+  passwords, TLS in front of nginx and `COOKIE_SECURE=true`.
+* `DEVICE_KEY_MASTER_SECRET` must be supplied; the backend refuses the placeholder value,
+  and `ENVIRONMENT=production` additionally refuses insecure cookies and development
+  secrets.
+* The console, API and WebSocket share one origin through nginx. The backend container is
+  not published to the host, so the forwarded client address it trusts can only come from
+  that proxy.
+* The database runs with the application's own role as owner, which is exactly the
+  "database owner can bypass application-level immutability" limitation in section 4.
+
+## 11. What the simulation does not establish
 
 The simulation does not establish clinical safety, regulatory compliance (e.g. FDA,
 IEC 62443, IEC 80001, HIPAA), compatibility with any real hospital architecture, or the

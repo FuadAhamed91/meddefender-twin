@@ -25,13 +25,17 @@ test("rejects a wrong password without revealing which part was wrong", async ({
 });
 
 test("the live twin maps every backend asset and shows backend state on selection", async ({ page }) => {
+  // The 3D view renders on a CPU in headless runs (capped frame rate): allow it more time.
+  test.slow();
   await signIn(page, "secadmin");
-  await expect(page.getByText("Live", { exact: true })).toBeVisible();
-  // The GLB is loaded and every physical asset's node was found by its backend id.
+  // The GLB is loaded and every physical asset's node was found by its backend id. (Checked
+  // first: on a software renderer the first frame's shader compile can briefly block the page.)
   await expect(page.getByText("Twin mapping verified · 21 assets")).toBeVisible({ timeout: 60_000 });
+  // The live event stream is connected.
+  await expect(page.getByText("Live", { exact: true })).toBeVisible();
 
   await page.getByRole("list", { name: "Assets" }).getByRole("button", { name: /ICU-PUMP-01/ }).click();
-  await expect(page.getByRole("heading", { name: "Infusion Pump Representation - Bay 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Infusion Pump Representation - Bay 1" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Close inspector" })).toBeVisible();
 });
 
